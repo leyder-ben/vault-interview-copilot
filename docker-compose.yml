@@ -1,0 +1,46 @@
+# vault-interview-copilot — local dev stack
+#
+# Deliberately NOT running Ollama here. Per the locked provider-hosting
+# decision (2026-07-14): the app points at whichever Ollama instance is
+# already running on the workstation or ai-inference VM (see .env.example),
+# rather than containerizing a redundant copy. See docs/adr/ for the reasoning.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: copilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: copilot
+      POSTGRES_PASSWORD: copilot
+      POSTGRES_DB: vault_copilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U copilot -d vault_copilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: copilot-api
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ${VAULT_PATH:-./sample-vault}:/vault:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # No Dockerfile yet — Phase 0 next step. This service will fail to
+    # build until apps/api/Dockerfile exists.
+
+volumes:
+  pgdata:
