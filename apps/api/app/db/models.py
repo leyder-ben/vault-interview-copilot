@@ -37,9 +37,7 @@ class Chunk(Base):
     __tablename__ = "chunks"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    note_id: Mapped[int] = mapped_column(
-        ForeignKey("notes.id", ondelete="CASCADE"), nullable=False
-    )
+    note_id: Mapped[int] = mapped_column(ForeignKey("notes.id", ondelete="CASCADE"), nullable=False)
     heading_path: Mapped[str | None] = mapped_column(Text)
     chunk_index: Mapped[int] = mapped_column(nullable=False)
     start_line: Mapped[int] = mapped_column(nullable=False)

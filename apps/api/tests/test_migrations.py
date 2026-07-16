@@ -1,4 +1,5 @@
 import sqlalchemy as sa
+
 from alembic import command
 from alembic.config import Config
 
