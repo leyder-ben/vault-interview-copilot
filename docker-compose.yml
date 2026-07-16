@@ -32,6 +32,10 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Overrides .env's localhost value — inside the compose network the
+      # database is reachable at the "postgres" service name, not localhost.
+      DATABASE_URL: postgresql+psycopg://copilot:copilot@postgres:5432/vault_copilot
     ports:
       - "8000:8000"
     volumes:
@@ -39,8 +43,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    # No Dockerfile yet — Phase 0 next step. This service will fail to
-    # build until apps/api/Dockerfile exists.
 
 volumes:
   pgdata:
