@@ -2,7 +2,7 @@
 
 A local, vault-grounded interview recall tool. Type a shorthand query mid-interview ("terraform drift prod," "helm scaling") and it pulls the relevant note out of an Obsidian vault and hands back a short, speakable, first-person answer with sources — not a generic explanation, and not an invented personal claim.
 
-**Status:** Phase 0 — repo skeleton. Not yet functional.
+**Status:** Phase 0 complete — `docker compose up` starts Postgres+pgvector and the API end to end; `/health` responds; schema is migrated. Phase 1 (vault indexing) not yet started.
 
 ## Why this exists
 
@@ -26,11 +26,10 @@ React, Vite, TypeScript · FastAPI, Pydantic, SQLAlchemy, Alembic · PostgreSQL 
 
 ## Getting started
 
-Not yet runnable — Phase 0 in progress. Docker Compose skeleton is in place; API and web apps are not yet implemented.
-
 ```bash
 cp .env.example .env
 docker compose up -d
+curl http://localhost:8000/health
 ```
 
 ## Privacy
