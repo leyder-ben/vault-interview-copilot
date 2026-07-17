@@ -171,7 +171,9 @@ def run_index(
         except Exception as exc:  # noqa: BLE001
             result.errors.append({"vault_path": scanned.vault_path, "error": str(exc)})
 
-    scanned_paths = {f.vault_path for f in scanned_files}
+    scanned_paths = {f.vault_path for f in scanned_files} | {
+        e["vault_path"] for e in scan_result.errors if e.get("vault_path") is not None
+    }
     for vault_path_key, note in existing_notes.items():
         if vault_path_key not in scanned_paths:
             result.chunks_deleted += len(note.chunks)

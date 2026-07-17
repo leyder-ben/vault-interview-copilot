@@ -231,6 +231,33 @@ def test_deleted_file_removes_note_and_chunks(tmp_path, db_session):
     assert db_session.query(Note).filter_by(vault_path="Note-A.md").first() is None
 
 
+def test_unreadable_existing_file_is_not_treated_as_deleted(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)
+    provider = FakeEmbeddingProvider()
+    run_index(
+        db_session,
+        str(tmp_path),
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+    assert db_session.query(Note).filter_by(vault_path="Note-A.md").one() is not None
+
+    (tmp_path / "Note-A.md").write_bytes(b"\xff\xfe\x00invalid")
+    result = run_index(
+        db_session,
+        str(tmp_path),
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    assert db_session.query(Note).filter_by(vault_path="Note-A.md").one() is not None
+    assert result.files_deleted == 0
+    assert result.status == "partial"
+    assert any(e["vault_path"] == "Note-A.md" for e in result.errors)
+
+
 def test_unreadable_vault_path_marks_run_failed(db_session):
     provider = FakeEmbeddingProvider()
     result = run_index(
