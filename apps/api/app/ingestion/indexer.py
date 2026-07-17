@@ -28,6 +28,49 @@ def _title_from_path(vault_path: str) -> str:
     return vault_path.rsplit("/", 1)[-1]
 
 
+def _diff_and_embed_chunks(
+    existing_chunks: list[Chunk],
+    chunk_data: list,
+    embedding_provider: EmbeddingProvider,
+) -> list[Chunk]:
+    # Keyed by (heading_path, chunk_index), not heading_path alone — an oversized
+    # section (see chunker.py's fallback splitting) can produce multiple sibling
+    # chunks under the same heading_path, and heading_path-only keys would collapse
+    # them to a single dict entry, causing every sibling but one to be compared
+    # against the wrong old chunk's content_hash.
+    existing_by_key = {(c.heading_path, c.chunk_index): c for c in existing_chunks}
+    to_embed_indexes: list[int] = []
+    texts_to_embed: list[str] = []
+    resolved: dict[int, list[float]] = {}
+
+    for i, c in enumerate(chunk_data):
+        old = existing_by_key.get((c.heading_path, c.chunk_index))
+        if old is not None and old.content_hash == c.content_hash:
+            resolved[i] = old.embedding
+        else:
+            to_embed_indexes.append(i)
+            texts_to_embed.append(c.content_with_context)
+
+    new_vectors = embedding_provider.embed_batch(texts_to_embed)
+    for idx, vector in zip(to_embed_indexes, new_vectors):
+        resolved[idx] = vector
+
+    return [
+        Chunk(
+            heading_path=c.heading_path,
+            chunk_index=c.chunk_index,
+            start_line=c.start_line,
+            end_line=c.end_line,
+            content=c.content,
+            content_with_context=c.content_with_context,
+            token_count=c.token_count,
+            embedding=resolved[i],
+            content_hash=c.content_hash,
+        )
+        for i, c in enumerate(chunk_data)
+    ]
+
+
 def run_index(
     session: Session,
     vault_path: str,
@@ -69,7 +112,6 @@ def run_index(
                 vault_path=scanned.vault_path,
                 max_section_tokens=max_section_tokens,
             )
-            vectors = embedding_provider.embed_batch([c.content_with_context for c in chunk_data])
 
             if existing is None:
                 note = Note(
@@ -85,6 +127,23 @@ def run_index(
                     embedding_version=embedding_model,
                 )
                 session.add(note)
+                vectors = embedding_provider.embed_batch(
+                    [c.content_with_context for c in chunk_data]
+                )
+                note.chunks = [
+                    Chunk(
+                        heading_path=c.heading_path,
+                        chunk_index=c.chunk_index,
+                        start_line=c.start_line,
+                        end_line=c.end_line,
+                        content=c.content,
+                        content_with_context=c.content_with_context,
+                        token_count=c.token_count,
+                        embedding=vector,
+                        content_hash=c.content_hash,
+                    )
+                    for c, vector in zip(chunk_data, vectors)
+                ]
                 result.files_added += 1
             else:
                 note = existing
@@ -95,22 +154,11 @@ def run_index(
                 note.aliases = parsed.aliases
                 note.indexed_at = datetime.now(UTC)
                 note.embedding_version = embedding_model
+                note.chunks = _diff_and_embed_chunks(
+                    list(existing.chunks), chunk_data, embedding_provider
+                )
                 result.files_updated += 1
 
-            note.chunks = [
-                Chunk(
-                    heading_path=c.heading_path,
-                    chunk_index=c.chunk_index,
-                    start_line=c.start_line,
-                    end_line=c.end_line,
-                    content=c.content,
-                    content_with_context=c.content_with_context,
-                    token_count=c.token_count,
-                    embedding=vector,
-                    content_hash=c.content_hash,
-                )
-                for c, vector in zip(chunk_data, vectors)
-            ]
             note.links = [
                 NoteLink(
                     target_path=link.target, link_text=link.link_text, link_type=link.link_type
