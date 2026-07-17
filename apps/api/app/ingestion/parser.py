@@ -55,7 +55,11 @@ def _extract_links(text: str) -> list[Link]:
     for match in _WIKILINK_RE.finditer(text):
         target, alias = match.group(1), match.group(2)
         links.append(
-            Link(target=target.strip(), link_text=(alias.strip() if alias else None), link_type="wikilink")
+            Link(
+                target=target.strip(),
+                link_text=(alias.strip() if alias else None),
+                link_type="wikilink",
+            )
         )
     for match in _MDLINK_RE.finditer(text):
         text_part, target = match.group(1), match.group(2)

@@ -74,3 +74,11 @@ def test_heading_inside_code_block_is_not_treated_as_a_heading():
     parsed = parse_note(note, fallback_title="fallback.md")
     heading_paths = {s.heading_path for s in parsed.sections}
     assert heading_paths == {"Real Heading"}
+
+
+def test_section_content_includes_heading_line():
+    parsed = parse_note(FRONTMATTER_NOTE, fallback_title="fallback.md")
+    state_mgmt_section = next(
+        s for s in parsed.sections if s.heading_path and s.heading_path.endswith("State Management")
+    )
+    assert state_mgmt_section.content.startswith("## State Management")
