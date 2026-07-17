@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 IGNORED_DIRS = {
     ".git",
@@ -40,7 +43,11 @@ def scan_vault(vault_path: str | Path) -> list[ScannedFile]:
         relative = path.relative_to(root)
         if _is_ignored(relative.parts):
             continue
-        content = path.read_text(encoding="utf-8")
+        try:
+            content = path.read_text(encoding="utf-8")
+        except UnicodeDecodeError:
+            logger.warning(f"Skipping file with invalid UTF-8 encoding: {relative.as_posix()}")
+            continue
         stat = path.stat()
         results.append(
             ScannedFile(

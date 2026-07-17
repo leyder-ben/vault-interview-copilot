@@ -51,3 +51,19 @@ def test_scanned_file_has_timezone_aware_modified_at(tmp_path):
     files = scan_vault(tmp_path)
     assert isinstance(files[0].modified_at, datetime)
     assert files[0].modified_at.tzinfo is not None
+
+
+def test_scan_skips_files_with_invalid_utf8(tmp_path):
+    # Write a valid file
+    _write(tmp_path, "valid.md", "# Valid\n\nContent.")
+    # Write a file with invalid UTF-8 bytes
+    invalid_file = tmp_path / "invalid.md"
+    invalid_file.parent.mkdir(parents=True, exist_ok=True)
+    invalid_file.write_bytes(b"\xff\xfe\x00invalid")
+
+    files = scan_vault(tmp_path)
+
+    # Only the valid file should be returned
+    paths = {f.vault_path for f in files}
+    assert paths == {"valid.md"}
+    assert len(files) == 1
