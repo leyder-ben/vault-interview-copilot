@@ -82,7 +82,7 @@ def run_index(
     started_at = datetime.now(UTC)
 
     try:
-        scanned_files = scan_vault(vault_path)
+        scan_result = scan_vault(vault_path)
     except OSError as exc:
         index_run = IndexRun(
             started_at=started_at,
@@ -94,7 +94,9 @@ def run_index(
         session.commit()
         return IndexRunResult(status="failed", errors=[{"vault_path": None, "error": str(exc)}])
 
+    scanned_files = scan_result.files
     result = IndexRunResult(status="success", files_scanned=len(scanned_files))
+    result.errors.extend(scan_result.errors)
     existing_notes = {note.vault_path: note for note in session.query(Note).all()}
 
     for scanned in scanned_files:
@@ -168,6 +170,13 @@ def run_index(
             result.chunks_created += len(chunk_data)
         except Exception as exc:  # noqa: BLE001
             result.errors.append({"vault_path": scanned.vault_path, "error": str(exc)})
+
+    scanned_paths = {f.vault_path for f in scanned_files}
+    for vault_path_key, note in existing_notes.items():
+        if vault_path_key not in scanned_paths:
+            result.chunks_deleted += len(note.chunks)
+            session.delete(note)
+            result.files_deleted += 1
 
     if result.errors:
         result.status = "partial"

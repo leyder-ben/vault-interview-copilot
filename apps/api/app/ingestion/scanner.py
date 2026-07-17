@@ -28,6 +28,12 @@ class ScannedFile:
     modified_at: datetime
 
 
+@dataclass
+class ScanResult:
+    files: list[ScannedFile]
+    errors: list[dict]
+
+
 def compute_content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
@@ -36,17 +42,21 @@ def _is_ignored(relative_parts: tuple[str, ...]) -> bool:
     return any(part in IGNORED_DIRS for part in relative_parts[:-1])
 
 
-def scan_vault(vault_path: str | Path) -> list[ScannedFile]:
+def scan_vault(vault_path: str | Path) -> ScanResult:
     root = Path(vault_path)
+    if not root.is_dir():
+        raise FileNotFoundError(f"vault path does not exist or is not a directory: {root}")
     results: list[ScannedFile] = []
+    errors: list[dict] = []
     for path in sorted(root.rglob("*.md")):
         relative = path.relative_to(root)
         if _is_ignored(relative.parts):
             continue
         try:
             content = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
+        except UnicodeDecodeError as exc:
             logger.warning(f"Skipping file with invalid UTF-8 encoding: {relative.as_posix()}")
+            errors.append({"vault_path": relative.as_posix(), "error": str(exc)})
             continue
         stat = path.stat()
         results.append(
@@ -57,4 +67,4 @@ def scan_vault(vault_path: str | Path) -> list[ScannedFile]:
                 modified_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
             )
         )
-    return results
+    return ScanResult(files=results, errors=errors)

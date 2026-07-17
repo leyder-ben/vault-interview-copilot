@@ -186,3 +186,60 @@ def test_oversized_section_chunks_are_matched_by_heading_and_index_on_rerun(tmp_
         "filler text" in text for text in embedded_texts
     ), "no Everything sub-chunk should have been re-embedded — only Other actually changed"
     assert any("Edited other content." in text for text in embedded_texts)
+
+
+def test_unreadable_file_is_recorded_as_error_and_other_files_still_index(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)
+    invalid_file = tmp_path / "Invalid.md"
+    invalid_file.write_bytes(b"\xff\xfe\x00invalid")
+    provider = FakeEmbeddingProvider()
+
+    result = run_index(
+        db_session,
+        str(tmp_path),
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    assert result.status == "partial"
+    assert any(e["vault_path"] == "Invalid.md" for e in result.errors)
+    assert db_session.query(Note).filter_by(vault_path="Note-A.md").one() is not None
+
+
+def test_deleted_file_removes_note_and_chunks(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)
+    provider = FakeEmbeddingProvider()
+    run_index(
+        db_session,
+        str(tmp_path),
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    (tmp_path / "Note-A.md").unlink()
+    result = run_index(
+        db_session,
+        str(tmp_path),
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    assert result.files_deleted == 1
+    assert db_session.query(Note).filter_by(vault_path="Note-A.md").first() is None
+
+
+def test_unreadable_vault_path_marks_run_failed(db_session):
+    provider = FakeEmbeddingProvider()
+    result = run_index(
+        db_session,
+        "/nonexistent/vault/path",
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+    assert result.status == "failed"
+    run = db_session.query(IndexRun).order_by(IndexRun.id.desc()).first()
+    assert run.status == "failed"
