@@ -316,7 +316,7 @@ git commit -m "feat(retrieval): add query normalization with alias glossary"
 - Consumes: `Chunk`, `Note` models (`app.db.models`, already exist; `Chunk.search_vector` is now a generated column per Task 1).
 - Produces: `ScoredChunk(chunk_id: int, vault_path: str, heading_path: str | None, rank: int, score: float)`, `search_fulltext(session: Session, query: str, limit: int = 20) -> list[ScoredChunk]`. `ScoredChunk` is consumed by Task 4 (vector search, same shape), Task 5 (fusion), Task 6 (search orchestration), and Task 7 (debug endpoint).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_fulltext.py`:
 
@@ -403,12 +403,12 @@ def test_search_fulltext_respects_limit(db_session):
     assert len(results) == 3
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fulltext.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.fulltext'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/fulltext.py`:
 
@@ -451,12 +451,12 @@ def search_fulltext(session: Session, query: str, limit: int = 20) -> list[Score
     ]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fulltext.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/fulltext.py apps/api/tests/retrieval/test_fulltext.py
