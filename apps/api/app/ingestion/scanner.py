@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -64,7 +64,7 @@ def scan_vault(vault_path: str | Path) -> ScanResult:
                 vault_path=relative.as_posix(),
                 content=content,
                 content_hash=compute_content_hash(content),
-                modified_at=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
+                modified_at=datetime.fromtimestamp(stat.st_mtime, tz=UTC),
             )
         )
     return ScanResult(files=results, errors=errors)
