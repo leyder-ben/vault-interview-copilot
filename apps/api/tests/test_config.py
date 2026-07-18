@@ -16,3 +16,14 @@ def test_env_vars_override_defaults(monkeypatch):
     settings = Settings(_env_file=None)
     assert settings.database_url == "postgresql+psycopg://x:y@z:5432/db"
     assert settings.query_logging is False
+
+
+def test_chunk_max_section_tokens_default():
+    settings = Settings(_env_file=None)
+    assert settings.chunk_max_section_tokens == 400
+
+
+def test_chunk_max_section_tokens_env_override(monkeypatch):
+    monkeypatch.setenv("CHUNK_MAX_SECTION_TOKENS", "250")
+    settings = Settings(_env_file=None)
+    assert settings.chunk_max_section_tokens == 250
