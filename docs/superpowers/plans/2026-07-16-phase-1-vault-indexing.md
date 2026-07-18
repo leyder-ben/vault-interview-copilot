@@ -2082,7 +2082,7 @@ git commit -m "feat(sample-vault): add fictional Meridian project content for Ph
 - Consumes: `run_index` (Task 6+), `FakeEmbeddingProvider` (Task 5), the real `sample-vault/` content (Task 11).
 - Produces: no new application code — this is the authoritative proof of the Phase 1 exit condition from `docs/architecture/10-delivery-plan.md`.
 
-- [ ] **Step 1: Write the integration tests**
+- [x] **Step 1: Write the integration tests**
 
 Create `apps/api/tests/ingestion/test_sample_vault_integration.py`:
 
@@ -2167,19 +2167,19 @@ def test_deleting_a_file_cascades_chunk_cleanup(tmp_path, db_session):
     assert db_session.query(Chunk).join(Note).filter(Note.vault_path.like("00-Inbox%")).count() == 0
 ```
 
-- [ ] **Step 2: Run the tests**
+- [x] **Step 2: Run the tests**
 
 Requires a real Postgres reachable at `settings.database_url`: `docker compose up -d postgres` (from repo root) if not already running.
 
 Run: `cd apps/api && pytest tests/ingestion/test_sample_vault_integration.py -v`
 Expected: PASS (4 tests) — this is the automated proof of the Phase 1 exit condition.
 
-- [ ] **Step 3: Run the full test suite**
+- [x] **Step 3: Run the full test suite**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS (all tests across the whole Phase 1 build)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add apps/api/tests/ingestion/test_sample_vault_integration.py
