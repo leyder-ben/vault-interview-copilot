@@ -1681,7 +1681,7 @@ git commit -m "feat(ingestion): add python -m app.ingestion.cli manual indexing 
 - Consumes: `IndexRun`, `Note` models; `settings.embedding_model`; `run_index` (for the test's setup, not the endpoint itself).
 - Produces: `get_db()` (FastAPI dependency, `Iterator[Session]`), `GET /api/index/status` route returning `{"embedding_model": str, "note_count": int, "last_run": dict | None}`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/test_index_status.py`:
 
@@ -1726,12 +1726,12 @@ def test_status_reflects_latest_index_run(tmp_path, db_session):
         app.dependency_overrides.clear()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/test_index_status.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.api.deps'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/api/deps.py`:
 
@@ -1801,17 +1801,17 @@ app.include_router(health_router)
 app.include_router(index_status_router)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/test_index_status.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Run the full test suite to check for regressions**
+- [x] **Step 5: Run the full test suite to check for regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS (all tests, old and new)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/app/api/deps.py apps/api/app/api/index_status.py apps/api/app/main.py apps/api/tests/test_index_status.py
