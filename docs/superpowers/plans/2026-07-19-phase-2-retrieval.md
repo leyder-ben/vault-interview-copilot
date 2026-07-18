@@ -35,7 +35,7 @@
 - Consumes: nothing from earlier tasks (this is the first Phase 2 task).
 - Produces: `chunks.search_vector` becomes a Postgres `GENERATED ALWAYS AS (to_tsvector('english', content_with_context)) STORED` column, automatically populated on every insert/update. Consumed by Task 3 (full-text search) and Task 4/Task 12 (evaluation harness, indirectly).
 
-- [ ] **Step 1: Write the failing test — migration backfills pre-existing rows**
+- [x] **Step 1: Write the failing test — migration backfills pre-existing rows**
 
 This test proves the exact mechanic verified manually during design: downgrade to `0001`, insert a chunk row via raw SQL (bypassing the ORM, since the ORM model will already declare the future generated column), upgrade to `0002`, assert `search_vector` was backfilled correctly for that pre-existing row — not just for rows inserted after the migration.
 
@@ -107,12 +107,12 @@ def test_0002_backfills_search_vector_for_preexisting_chunks(db_engine):
 
 `apps/api/tests/test_migrations.py` already imports `sqlalchemy as sa` and uses a `db_engine` fixture per the existing file (Phase 0) — check the existing file's imports and top-of-file fixtures before appending, don't duplicate an `import sqlalchemy as sa` line if one already exists.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/test_migrations.py::test_0002_backfills_search_vector_for_preexisting_chunks -v`
 Expected: FAIL — `alembic.util.exc.CommandError` or similar, because revision `0002` doesn't exist yet.
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 Create `apps/api/alembic/versions/0002_chunks_search_vector_generated.py`:
 
@@ -167,12 +167,12 @@ def downgrade() -> None:
     op.create_index("ix_chunks_search_vector", "chunks", ["search_vector"], postgresql_using="gin")
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/test_migrations.py -v`
 Expected: PASS (all tests in the file, old and new).
 
-- [ ] **Step 5: Update the SQLAlchemy model to match**
+- [x] **Step 5: Update the SQLAlchemy model to match**
 
 Modify `apps/api/app/db/models.py`. Add the import and change the `search_vector` column definition:
 
@@ -194,12 +194,12 @@ to:
     )
 ```
 
-- [ ] **Step 6: Run the full test suite to check for regressions**
+- [x] **Step 6: Run the full test suite to check for regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS (all tests, old and new). This confirms Phase 1's indexer — which never sets `search_vector` explicitly — still works unchanged, since Postgres now computes it automatically.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/alembic/versions/0002_chunks_search_vector_generated.py apps/api/app/db/models.py apps/api/tests/test_migrations.py
