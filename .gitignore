@@ -37,6 +37,12 @@ evaluation/reports/*
 # evaluation/datasets/sample-vault/ instead.
 evaluation/datasets/private/
 
+# Superpowers SDD scratch (progress ledgers, task briefs/reports, review
+# packages) — local working state for the subagent-driven-development skill,
+# not project deliverables. Distinct from docs/superpowers/ (plans/specs),
+# which IS tracked — see memory superpowers-docs-tracked-in-git.
+.superpowers/
+
 # Editor / OS
 .vscode/
 .idea/
