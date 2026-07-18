@@ -71,4 +71,4 @@ The real Obsidian vault is private and lives outside this repo. It must be mount
 
 ## Delivery order
 
-Follow `docs/architecture/10-delivery-plan.md` phase-by-phase. Do not skip ahead to retrieval or generation before the current phase's exit condition is met. Current phase: **Phase 0 — Decisions and Skeleton.** Exit condition: the local stack starts reliably (`docker compose up` works end to end) and CI runs formatting and tests.
+Follow `docs/architecture/10-delivery-plan.md` phase-by-phase. Do not skip ahead to generation before the current phase's exit condition is met. Current phase: **Phase 2 — Retrieval.** Phase 1 exit condition met 2026-07-18 (`sample-vault/` indexes repeatedly via `run_index`, second run touches zero files — merged in PR #2). Phase 2 exit condition: shorthand queries consistently retrieve the expected sample notes.
