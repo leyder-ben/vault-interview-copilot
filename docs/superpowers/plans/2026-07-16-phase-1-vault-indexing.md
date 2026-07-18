@@ -2219,7 +2219,7 @@ Both are silent and undetectable from `errors_json` or run status. Fix: reorder 
 
 **Interfaces:** No public signature changes. This is a reordering + atomicity fix inside `run_index`'s per-file processing loop only.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `apps/api/tests/ingestion/test_indexer.py`. You'll need a `FakeEmbeddingProvider` variant (or a parameter on the existing one) that raises partway through a batch — e.g. `FailingEmbeddingProvider(fail_after: int)` that succeeds for the first N calls/items then raises. Check the existing `FakeEmbeddingProvider` in this file and extend it in the way that fits its current shape (constructor param, or a subclass) rather than duplicating it.
 
@@ -2281,7 +2281,7 @@ If `NOTE_A_MODIFIED` doesn't already exist as a fixture in this file, add a smal
 Run: `cd apps/api && pytest tests/ingestion/test_indexer.py -v`
 Expected: FAIL on all three new tests — current code commits note state before/independent of embedding success.
 
-- [ ] **Step 2: Locate and reorder the per-file processing block**
+- [x] **Step 2: Locate and reorder the per-file processing block**
 
 In `apps/api/app/ingestion/indexer.py`, find the loop that processes each scanned file (the same loop Task 8 added the deleted-file cleanup after — and check whether Task 9, 11, or 12 touched this loop too, since you're past those now; reconcile against current source, not this description). The current order is roughly: mutate/create the `Note` row (set `content_hash`, add to session) → build chunks → call `provider.embed_batch(...)` → attach chunks to the note.
 
@@ -2295,17 +2295,17 @@ Reorder to:
 
 Keep the existing per-file try/except structure and `errors_json` shape intact — this is a reordering and atomicity fix within that structure, not a new error-handling mechanism.
 
-- [ ] **Step 3: Run tests to verify they pass**
+- [x] **Step 3: Run tests to verify they pass**
 
 Run: `cd apps/api && pytest tests/ingestion/test_indexer.py tests/ingestion/test_scanner.py -v`
 Expected: PASS (all indexer + scanner tests, including the 3 new ones).
 
-- [ ] **Step 4: Run full suite to confirm no regressions**
+- [x] **Step 4: Run full suite to confirm no regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS, full suite green. This matters more than usual here since Task 13 touches shared code (the per-file loop) that Tasks 9–12 may also have built on top of — a regression here could ripple into CLI or later Phase 1 work you've already committed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/ingestion/indexer.py apps/api/tests/ingestion/test_indexer.py
