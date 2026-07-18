@@ -220,7 +220,7 @@ git commit -m "feat(retrieval): make chunks.search_vector a Postgres-generated c
 - Consumes: nothing from earlier tasks.
 - Produces: `ALIASES: dict[str, str]`, `normalize_query(raw: str) -> str`. Consumed by `search()` (Task 6).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/app/retrieval/__init__.py` (empty) and `apps/api/tests/retrieval/__init__.py` (empty).
 
@@ -255,12 +255,12 @@ def test_preserves_exact_technical_tokens_not_in_glossary():
     assert normalize_query("pve-dain OIDC") == "pve-dain oidc"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_normalize.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.normalize'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/normalize.py`:
 
@@ -292,12 +292,12 @@ def normalize_query(raw: str) -> str:
     return " ".join(expanded)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_normalize.py -v`
 Expected: PASS (6 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/__init__.py apps/api/app/retrieval/normalize.py apps/api/tests/retrieval/__init__.py apps/api/tests/retrieval/test_normalize.py
