@@ -45,7 +45,7 @@ raw_query
 normalize_query()          -- lowercase, alias expansion (hardcoded dict), punctuation cleanup;
     |                          preserves raw_query separately for display
     v
-embed(normalized_query)    -- one call to OllamaEmbeddingProvider (Phase 1), reused as-is
+embed(normalized_query)    -- embedding_provider.embed_batch([normalized_query])[0]
     |
     +--> search_fulltext(): to_tsquery against chunks.search_vector, top 20, ts_rank score
     |
@@ -63,6 +63,10 @@ RetrievalResult: normalized_query, fulltext_results, vector_results, fused_resul
 ```
 
 No reranking, no context-diversity narrowing to 4-6 chunks — both explicitly deferred (see "Out of scope").
+
+### Embedding provider reuse (verified, not assumed)
+
+Checked `apps/api/app/ingestion/embeddings.py` directly rather than assuming Phase 1's `OllamaEmbeddingProvider` composes with a single query string. Its actual signature is `embed_batch(self, texts: list[str]) -> list[list[float]]` — plain strings in, plain vectors out. Confirmed at both of Phase 1's real call sites (`indexer.py:54` and `:124`) that the provider itself never sees `ChunkData` objects; the caller always extracts `content_with_context` strings *before* calling `embed_batch`, so there's no chunk-specific coupling baked into the interface. `search()` calling `embed_batch([normalized_query])[0]` for a single query is therefore a genuine, verified fit, not a batch-of-one workaround around an interface built for something else.
 
 ## Sequential execution (not concurrent)
 
@@ -168,7 +172,7 @@ Thin wrapper around `search()` — no new logic, just HTTP plumbing and response
 }
 ```
 
-Not authenticated (single-user, local-only tool, matching the project's existing posture). Does **not** write to `query_runs` — that table's write path is a Phase 3 concern (real queries through `/api/query`), not debug-endpoint traffic.
+Not authenticated (single-user, local-only tool, matching the project's existing posture). **This reasoning has an expiration date, not just a caveat**: it holds only while the app is reachable exclusively via localhost. Phase 4 is a web interface — if the app ever becomes reachable beyond localhost (even just the home network), an unauthenticated endpoint that dumps raw chunk content and internal scoring is a different risk profile and needs revisiting then, not carried forward silently as an assumption nobody re-examines. Not a Phase 2 blocker; a flag for whoever (human or Claude) touches network exposure later. Does **not** write to `query_runs` — that table's write path is a Phase 3 concern (real queries through `/api/query`), not debug-endpoint traffic.
 
 ## Evaluation harness
 
@@ -207,7 +211,11 @@ Retrieval latency: p50 12ms, p95 34ms
 - Unit tests per `app/retrieval/` module against a seeded `db_session` (real Postgres, matching Phase 1's established pattern).
 - Migration test: apply `0002_...` against a DB with pre-existing chunk rows (not just an empty schema), assert `search_vector` is populated and matches `to_tsvector('english', content_with_context)` — this is the regression guard for the mechanics verified above.
 - Debug endpoint test.
-- `test_retrieval_eval.py`: the actual Phase 2 exit-condition proof, asserting shorthand Recall@5 against `sample-vault` meets a threshold. The threshold is not picked in advance — that would be an unmeasured, invented number, which CLAUDE.md's evaluation principle explicitly rules out ("never publish a number that wasn't actually measured"). Instead, the implementation task runs the harness first, uncapped, against the finished pipeline (with the retrofitted `interviewer_phrasing` fixtures in place); whatever shorthand Recall@5 that real run produces becomes the committed threshold — set at that measured value (not padded), so the test is a regression floor from a real baseline, not a target picked by guesswork. If the first real run is below 100%, the plan task investigates the specific miss (retrieval bug vs. genuinely hard fixture) before locking in the threshold, rather than silently accepting a low bar.
+- `test_retrieval_eval.py`: the actual Phase 2 exit-condition proof, asserting shorthand Recall@5 against `sample-vault` meets a threshold. The threshold is not picked in advance — that would be an unmeasured, invented number, which CLAUDE.md's evaluation principle explicitly rules out ("never publish a number that wasn't actually measured"). Instead, the implementation task runs the harness first, uncapped, against the finished pipeline (with the retrofitted `interviewer_phrasing` fixtures in place); whatever shorthand Recall@5 that real run produces becomes the committed threshold — set at that measured value (not padded), so the test is a regression floor from a real baseline, not a target picked by guesswork.
+
+  **Bounded investigate-then-lock process, stated explicitly so it can't blur under momentum:** if the first real run is below 100%, there are exactly two different things that could happen next, and only one of them is allowed.
+  - **Allowed:** investigate the specific miss once — is it a retrieval bug (wrong RRF weighting, a normalization gap, a query that should have matched but didn't due to an implementation defect)? If so, fix the *retrieval code* and re-run once. The number that comes back from that one re-run is the threshold, full stop.
+  - **Not allowed:** iterating on the *fixtures* (rewording `expected_notes`, loosening what counts as a match, dropping a fixture that's inconvenient) to make Recall@5 climb toward 100%. Tuning retrieval until fixtures pass is legitimate engineering. Tuning fixtures until they pass is p-hacking the exit condition. The implementation task must not touch fixture content to raise the score — only retrieval code, and only once before locking in whatever number results.
 
 ## Out of scope (Phase 3+)
 
