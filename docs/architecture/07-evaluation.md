@@ -26,7 +26,7 @@ Private dataset for the real vault; sanitized dataset for the public repo / `sam
     - "Interview Prep/Environments.md"
 ```
 
-A real fixture set already exists, built from real mock-interview questions — see the vault note `Evaluation-Fixtures-Draft.md` (20 fixtures, ready to drop into `evaluation/datasets/` once Phase 1 exists). Don't invent fixture examples when real ones already exist.
+A real fixture set exists, built from real mock-interview questions — originally drafted in the vault note `Evaluation-Fixtures-Draft.md`, now converted into `evaluation/datasets/private/mock-interview-fixtures.yaml` (20 fixtures, gitignored — real project names, not for the public repo). A small sanitized subset covering the same fixture categories against `sample-vault/`'s fictional Meridian content lives at `evaluation/datasets/sample-vault/meridian-fixtures.yaml` (committed, 6 fixtures — sample-vault only has 7 indexable notes, so this isn't padded to match the private set 1:1). Don't invent fixture examples when real ones already exist.
 
 ## Retrieval metrics
 

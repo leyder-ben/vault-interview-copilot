@@ -32,6 +32,11 @@ vault-data/
 evaluation/reports/*
 !evaluation/reports/.gitkeep
 
+# Private evaluation fixtures (real vault content, real project names) —
+# never committed. Sanitized fixtures for the public repo live in
+# evaluation/datasets/sample-vault/ instead.
+evaluation/datasets/private/
+
 # Editor / OS
 .vscode/
 .idea/
