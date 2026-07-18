@@ -1,8 +1,12 @@
 from app.db.models import IndexRun, Note
 from app.ingestion.indexer import run_index
-from tests.ingestion.fakes import FakeEmbeddingProvider
+from tests.ingestion.fakes import FailingEmbeddingProvider, FakeEmbeddingProvider
 
 NOTE_A = "# Note A\n\n## Section One\n\nContent for section one.\n"
+NOTE_A_MODIFIED = (
+    "# Note A\n\n## Section One\n\nModified content for section one.\n\n"
+    "## Section Two\n\nNew section added.\n"
+)
 
 
 def _write(base, relative_path, content):
@@ -270,3 +274,79 @@ def test_unreadable_vault_path_marks_run_failed(db_session):
     assert result.status == "failed"
     run = db_session.query(IndexRun).order_by(IndexRun.id.desc()).first()
     assert run.status == "failed"
+
+
+def test_new_note_not_committed_if_embedding_fails_partway(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)  # a note whose content splits into 2+ chunks
+    provider = FailingEmbeddingProvider(fail_after=0)  # fails on first batch
+
+    result = run_index(
+        db_session,
+        str(tmp_path),
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    # Note must not exist at all — not "exists with 0 chunks"
+    assert db_session.query(Note).filter_by(vault_path="Note-A.md").first() is None
+    assert any(e["vault_path"] == "Note-A.md" for e in result.errors)
+    assert result.status == "partial"
+
+
+def test_changed_note_keeps_old_chunks_if_embedding_fails_partway(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)
+    provider = FakeEmbeddingProvider()
+    run_index(
+        db_session,
+        str(tmp_path),
+        provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    original_note = db_session.query(Note).filter_by(vault_path="Note-A.md").one()
+    original_hash = original_note.content_hash
+    original_chunk_count = len(original_note.chunks)
+
+    _write(tmp_path, "Note-A.md", NOTE_A_MODIFIED)  # changed content, different chunk count
+    failing_provider = FailingEmbeddingProvider(fail_after=0)
+    result = run_index(
+        db_session,
+        str(tmp_path),
+        failing_provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    db_session.refresh(original_note)
+    # Old hash and old chunks must be untouched — not partially replaced
+    assert original_note.content_hash == original_hash
+    assert len(original_note.chunks) == original_chunk_count
+    assert any(e["vault_path"] == "Note-A.md" for e in result.errors)
+    assert result.status == "partial"
+
+
+def test_failed_note_is_retried_cleanly_on_next_run(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)
+    failing_provider = FailingEmbeddingProvider(fail_after=0)
+    run_index(
+        db_session,
+        str(tmp_path),
+        failing_provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    working_provider = FakeEmbeddingProvider()
+    result = run_index(
+        db_session,
+        str(tmp_path),
+        working_provider,
+        max_section_tokens=400,
+        embedding_model="nomic-embed-text",
+    )
+
+    note = db_session.query(Note).filter_by(vault_path="Note-A.md").one()
+    assert len(note.chunks) > 0
+    assert result.status == "success"

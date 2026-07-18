@@ -116,6 +116,14 @@ def run_index(
             )
 
             if existing is None:
+                # Build chunks + embeddings fully before creating/touching the Note
+                # row. If embed_batch raises, we must not have added anything to the
+                # session — a new note with zero chunks would otherwise get committed
+                # and be silently skipped forever on future runs (its content_hash
+                # would already match).
+                vectors = embedding_provider.embed_batch(
+                    [c.content_with_context for c in chunk_data]
+                )
                 note = Note(
                     vault_path=scanned.vault_path,
                     filename=scanned.vault_path.rsplit("/", 1)[-1],
@@ -127,10 +135,6 @@ def run_index(
                     aliases=parsed.aliases,
                     indexed_at=datetime.now(UTC),
                     embedding_version=embedding_model,
-                )
-                session.add(note)
-                vectors = embedding_provider.embed_batch(
-                    [c.content_with_context for c in chunk_data]
                 )
                 note.chunks = [
                     Chunk(
@@ -146,8 +150,17 @@ def run_index(
                     )
                     for c, vector in zip(chunk_data, vectors)
                 ]
+                session.add(note)
                 result.files_added += 1
             else:
+                # Same principle: resolve embeddings for changed/new chunks fully
+                # before mutating the existing, already-persistent Note row. If
+                # embed_batch raises inside _diff_and_embed_chunks, it raises before
+                # returning anything here, so content_hash and chunks below are never
+                # touched — the DB row stays exactly as it was before this run.
+                new_chunks = _diff_and_embed_chunks(
+                    list(existing.chunks), chunk_data, embedding_provider
+                )
                 note = existing
                 note.content_hash = scanned.content_hash
                 note.modified_at = scanned.modified_at
@@ -156,9 +169,7 @@ def run_index(
                 note.aliases = parsed.aliases
                 note.indexed_at = datetime.now(UTC)
                 note.embedding_version = embedding_model
-                note.chunks = _diff_and_embed_chunks(
-                    list(existing.chunks), chunk_data, embedding_provider
-                )
+                note.chunks = new_chunks
                 result.files_updated += 1
 
             note.links = [
