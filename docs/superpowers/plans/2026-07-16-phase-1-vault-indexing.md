@@ -2203,6 +2203,125 @@ This isn't a scripted test — it's the manual proof described in `Phase-1-Scope
 
 ---
 
+### Task 13: Defer note-state mutation until chunks/embeddings are confirmed committed
+
+**Context:** Flagged as an Important finding at Phase 1 final review (post Task 12), previously deferred at Task 6/Task 8 as low-probability. This is a follow-up fix landing after Phase 1's original 12 tasks are already committed — not a gap in the original sequence.
+
+If `run_index` hits an embedding-provider error partway through processing a file, two failure modes are currently possible:
+- A new note gets added to the session with its `content_hash` set, but zero chunks — permanently skipped on future runs, since the hash now matches and nothing flags it as incomplete.
+- A changed note commits its new `content_hash` while its old, stale chunks remain attached — also permanently skipped, silently serving outdated content.
+
+Both are silent and undetectable from `errors_json` or run status. Fix: reorder the per-file update so chunk building and embedding happen before any note-state mutation, so a mid-file failure leaves the note exactly as it was pre-run, and a retry on the next `run_index` call picks it up cleanly instead of treating it as already-indexed.
+
+**Files:**
+- Modify: `apps/api/app/ingestion/indexer.py`
+- Test: `apps/api/tests/ingestion/test_indexer.py` (append)
+
+**Interfaces:** No public signature changes. This is a reordering + atomicity fix inside `run_index`'s per-file processing loop only.
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `apps/api/tests/ingestion/test_indexer.py`. You'll need a `FakeEmbeddingProvider` variant (or a parameter on the existing one) that raises partway through a batch — e.g. `FailingEmbeddingProvider(fail_after: int)` that succeeds for the first N calls/items then raises. Check the existing `FakeEmbeddingProvider` in this file and extend it in the way that fits its current shape (constructor param, or a subclass) rather than duplicating it.
+
+```python
+def test_new_note_not_committed_if_embedding_fails_partway(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)  # a note whose content splits into 2+ chunks
+    provider = FailingEmbeddingProvider(fail_after=0)  # fails on first batch
+
+    result = run_index(
+        db_session, str(tmp_path), provider, max_section_tokens=400, embedding_model="nomic-embed-text"
+    )
+
+    # Note must not exist at all — not "exists with 0 chunks"
+    assert db_session.query(Note).filter_by(vault_path="Note-A.md").first() is None
+    assert any(e["vault_path"] == "Note-A.md" for e in result.errors)
+    assert result.status == "partial"
+
+
+def test_changed_note_keeps_old_chunks_if_embedding_fails_partway(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)
+    provider = FakeEmbeddingProvider()
+    run_index(db_session, str(tmp_path), provider, max_section_tokens=400, embedding_model="nomic-embed-text")
+
+    original_note = db_session.query(Note).filter_by(vault_path="Note-A.md").one()
+    original_hash = original_note.content_hash
+    original_chunk_count = len(original_note.chunks)
+
+    _write(tmp_path, "Note-A.md", NOTE_A_MODIFIED)  # changed content, different chunk count
+    failing_provider = FailingEmbeddingProvider(fail_after=0)
+    result = run_index(
+        db_session, str(tmp_path), failing_provider, max_section_tokens=400, embedding_model="nomic-embed-text"
+    )
+
+    db_session.refresh(original_note)
+    # Old hash and old chunks must be untouched — not partially replaced
+    assert original_note.content_hash == original_hash
+    assert len(original_note.chunks) == original_chunk_count
+    assert any(e["vault_path"] == "Note-A.md" for e in result.errors)
+    assert result.status == "partial"
+
+
+def test_failed_note_is_retried_cleanly_on_next_run(tmp_path, db_session):
+    _write(tmp_path, "Note-A.md", NOTE_A)
+    failing_provider = FailingEmbeddingProvider(fail_after=0)
+    run_index(db_session, str(tmp_path), failing_provider, max_section_tokens=400, embedding_model="nomic-embed-text")
+
+    working_provider = FakeEmbeddingProvider()
+    result = run_index(
+        db_session, str(tmp_path), working_provider, max_section_tokens=400, embedding_model="nomic-embed-text"
+    )
+
+    note = db_session.query(Note).filter_by(vault_path="Note-A.md").one()
+    assert len(note.chunks) > 0
+    assert result.status == "success"
+```
+
+If `NOTE_A_MODIFIED` doesn't already exist as a fixture in this file, add a small constant near `NOTE_A` with different content that produces a different chunk count.
+
+Run: `cd apps/api && pytest tests/ingestion/test_indexer.py -v`
+Expected: FAIL on all three new tests — current code commits note state before/independent of embedding success.
+
+- [ ] **Step 2: Locate and reorder the per-file processing block**
+
+In `apps/api/app/ingestion/indexer.py`, find the loop that processes each scanned file (the same loop Task 8 added the deleted-file cleanup after — and check whether Task 9, 11, or 12 touched this loop too, since you're past those now; reconcile against current source, not this description). The current order is roughly: mutate/create the `Note` row (set `content_hash`, add to session) → build chunks → call `provider.embed_batch(...)` → attach chunks to the note.
+
+Reorder to:
+1. Build the chunk data (text + metadata) and call `provider.embed_batch(...)` first, fully, before touching the `Note` row at all.
+2. Only once chunk data + vectors are back successfully, create/update the `Note` (set `content_hash`, `session.add(note)` if new) and assign the fully-built chunk list to it — as a single atomic reassignment (`note.chunks = new_chunk_objects`), not a clear-then-append.
+3. Wrap the `embed_batch` call (or the whole per-file block) in a `try`/`except` at the same level as the existing per-file error handling. On exception:
+   - New note: never call `session.add()` — nothing to roll back, it simply never entered the session.
+   - Changed note: don't touch `content_hash` or `note.chunks` — the existing DB row stays exactly as it was before this run.
+   - Append the failure to `result.errors` in the same shape already used (`{"vault_path": ..., "error": str(exc)}`), and continue to the next file rather than aborting the whole run.
+
+Keep the existing per-file try/except structure and `errors_json` shape intact — this is a reordering and atomicity fix within that structure, not a new error-handling mechanism.
+
+- [ ] **Step 3: Run tests to verify they pass**
+
+Run: `cd apps/api && pytest tests/ingestion/test_indexer.py tests/ingestion/test_scanner.py -v`
+Expected: PASS (all indexer + scanner tests, including the 3 new ones).
+
+- [ ] **Step 4: Run full suite to confirm no regressions**
+
+Run: `cd apps/api && pytest -v`
+Expected: PASS, full suite green. This matters more than usual here since Task 13 touches shared code (the per-file loop) that Tasks 9–12 may also have built on top of — a regression here could ripple into CLI or later Phase 1 work you've already committed.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add apps/api/app/ingestion/indexer.py apps/api/tests/ingestion/test_indexer.py
+git commit -m "fix(ingestion): don't commit note state until chunks/embeddings succeed
+
+Prevents new notes from landing with zero chunks and changed notes from
+keeping stale chunks under a new content_hash when embed_batch fails
+partway through a file. Both were previously silent and permanent —
+the hash comparison on the next run treated the file as already
+correctly indexed with no trace in errors_json. Deferred at Task 6/8,
+fixed as Task 13 after Phase 1 final review flagged it. Fix reorders
+note mutation to happen only after chunks and vectors are confirmed."
+```
+
+---
+
 ## Summary
 
 Twelve tasks, in dependency order: config → scanner → parser → chunker → embeddings → indexer (new/unchanged → diff/reuse → delete/failure) → CLI → API status → sample vault content → exit-condition integration tests. Each task is independently testable and commits on its own. Phase 1's exit condition (`docs/architecture/10-delivery-plan.md`) is satisfied by Task 12.
