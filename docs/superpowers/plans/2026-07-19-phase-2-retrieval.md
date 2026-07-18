@@ -91,6 +91,14 @@ def test_0002_backfills_search_vector_for_preexisting_chunks(db_engine):
         assert "terraform" in search_vector
         assert "drift" in search_vector
     finally:
+        # command.upgrade must run here too, not just the truncate: if the
+        # raw-SQL insert above throws, execution never reaches the upgrade
+        # call in the try block, and the schema is left stranded at
+        # revision 0001 — every later test using db_session assumes head
+        # schema (including the generated search_vector column) and would
+        # fail with a confusing, unrelated-looking error. upgrade is a
+        # no-op if already at head, so this is always safe to call.
+        command.upgrade(alembic_cfg, "0002")
         with db_engine.begin() as conn:
             conn.execute(
                 sa.text("TRUNCATE notes, chunks, note_links, index_runs, query_runs RESTART IDENTITY CASCADE")
@@ -1211,7 +1219,10 @@ def test_percentile_p50_of_sorted_values():
 
 
 def test_percentile_p95_of_sorted_values():
-    assert percentile(list(range(1, 101)), 95) == 95.0
+    # Linear interpolation (matches numpy.percentile's default method):
+    # index = 0.95 * 99 = 94.05, interpolates between sorted_values[94]=95
+    # and sorted_values[95]=96 -> 95 + (96-95)*0.05 = 95.05, not a round 95.0.
+    assert percentile(list(range(1, 101)), 95) == 95.05
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
