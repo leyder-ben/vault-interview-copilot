@@ -1835,7 +1835,7 @@ git commit -m "feat(api): add GET /api/index/status endpoint"
 **Interfaces:**
 - No code interfaces — this is fixture content consumed by Task 12's integration tests and by manual CLI verification.
 
-- [ ] **Step 1: Create the headingless inbox note**
+- [x] **Step 1: Create the headingless inbox note**
 
 Create `sample-vault/00-Inbox/Quick-Note-Kubernetes-Question.md`:
 
@@ -1847,7 +1847,7 @@ tags: [kubernetes, quick-capture]
 Interviewer asked how node scaling actually differs from pod scaling in practice — need to double check whether the Cluster Autoscaler config lives in the Terraform node group definition or somewhere else before the next mock. Follow up with [[Kubernetes-Fundamentals]].
 ```
 
-- [ ] **Step 2: Create the Terraform reference note**
+- [x] **Step 2: Create the Terraform reference note**
 
 Create `sample-vault/02-Technical-Reference/Terraform/Terraform-Fundamentals.md`. **Note the outer fence below is 4 backticks, not 3** — this file's own content contains a 3-backtick `hcl` fence, and a 3-backtick outer fence would terminate early at that inner fence. Write the file's contents exactly as shown between the 4-backtick markers, excluding the markers themselves:
 
@@ -1887,7 +1887,7 @@ resource "aws_instance" "app_server" {
 Team-wide state safety comes from locking the state file during writes — an S3 backend with DynamoDB-based locking prevents two people from applying at the same time and corrupting the state. See [[Meridian-Tool-Stack-Articulation]] for how this fits into the broader tool choices on this project.
 ````
 
-- [ ] **Step 3: Create the Kubernetes reference note**
+- [x] **Step 3: Create the Kubernetes reference note**
 
 Create `sample-vault/02-Technical-Reference/Kubernetes/Kubernetes-Fundamentals.md`. **Outer fence is 4 backticks** for the same reason as Task 11 Step 2 — this file contains a 3-backtick `yaml` fence internally:
 
@@ -1931,7 +1931,7 @@ spec:
 The Cluster Autoscaler is configured through the Terraform node group's min/max size settings, not through a Kubernetes manifest — see [[Terraform-Fundamentals]] for where that lives.
 ````
 
-- [ ] **Step 4: Create the talking-points note**
+- [x] **Step 4: Create the talking-points note**
 
 Create `sample-vault/01-Interview-Prep/Project-Talking-Points/Meridian-Tool-Stack-Articulation.md`:
 
@@ -1952,7 +1952,7 @@ Manual console changes don't leave an audit trail and don't scale past a handful
 Meridian's deployment pipeline pulls changes into the cluster via GitOps rather than pushing them from a long-running Jenkins-style server — no server to patch and babysit, and the cluster's actual state is always reconciled against Git rather than trusted to have received the last push. See [[CICD-Pipeline-Walkthrough]] for the full pipeline shape.
 ```
 
-- [ ] **Step 5: Create the CI/CD pipeline note**
+- [x] **Step 5: Create the CI/CD pipeline note**
 
 Create `sample-vault/01-Interview-Prep/Technical-Concepts/CICD-Pipeline-Walkthrough.md`. **Outer fence is 4 backticks**, same reason — this file contains a 3-backtick `yaml` fence internally:
 
@@ -1991,7 +1991,7 @@ jobs:
 The build stage pushes an image; it does not touch the cluster directly. A separate GitOps controller notices the new image reference and reconciles the cluster to match — see [[Meridian-Tool-Stack-Articulation]] for the reasoning behind that split.
 ````
 
-- [ ] **Step 6: Create the troubleshooting story note**
+- [x] **Step 6: Create the troubleshooting story note**
 
 Create `sample-vault/02-Technical-Reference/Troubleshooting-Log/Interview-Ready-Troubleshooting-Stories.md`:
 
@@ -2022,7 +2022,7 @@ Confirmed the Docker plugin only manages Jenkins-side configuration — it doesn
 The pipeline went green again, and the fix became the standard bootstrap step for any new build agent going forward.
 ```
 
-- [ ] **Step 7: Create the `_Source-Docs` proof file**
+- [x] **Step 7: Create the `_Source-Docs` proof file**
 
 Create `sample-vault/03-Projects/Meridian/_Source-Docs/Mock-Interview-Notes.md`:
 
@@ -2039,7 +2039,7 @@ tags: [meridian, mock-interview, source-doc]
 Interviewer pushed hard on the difference between rolling deployments and blue-green — worth re-confirming the canary distinction is crisp before the next one. Reference: [[Meridian-Tool-Stack-Articulation]].
 ```
 
-- [ ] **Step 8: Create the `_Templates` exclusion-proof file**
+- [x] **Step 8: Create the `_Templates` exclusion-proof file**
 
 Create `sample-vault/_Templates/STAR-Story-Template.md`:
 
@@ -2060,11 +2060,11 @@ tags: [template]
 ## Result
 ```
 
-- [ ] **Step 9: Remove the now-unneeded placeholder**
+- [x] **Step 9: Remove the now-unneeded placeholder**
 
 Run: `rm sample-vault/.gitkeep` (no longer needed now that the directory has real content)
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add sample-vault/
