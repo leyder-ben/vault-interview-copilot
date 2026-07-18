@@ -16,3 +16,13 @@ def test_main_runs_index_and_prints_summary(tmp_path, db_session, monkeypatch, c
     captured = capsys.readouterr()
     assert "status=success" in captured.out
     assert "added=1" in captured.out
+
+
+def test_parse_args_vault_path_flag_overrides():
+    args = cli_module._parse_args(["--vault-path", "/some/vault"])
+    assert args.vault_path == "/some/vault"
+
+
+def test_parse_args_vault_path_omitted_is_none():
+    args = cli_module._parse_args([])
+    assert args.vault_path is None
