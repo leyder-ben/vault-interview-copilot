@@ -1590,7 +1590,7 @@ git commit -m "feat(ingestion): surface scan errors and clean up deleted-file no
 - Consumes: `settings` (`app.core.config`), `SessionLocal` (`app.db.base`), `OllamaEmbeddingProvider` (Task 5), `run_index` (Task 6+).
 - Produces: `main() -> None`, runnable as `python -m app.ingestion.cli`. This is the file Phase 3 will change (the one `base_url=` line) to resolve the active provider from the DB instead of `settings.ollama_workstation_url` directly.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/ingestion/test_cli.py`:
 
@@ -1613,12 +1613,12 @@ def test_main_runs_index_and_prints_summary(tmp_path, db_session, monkeypatch, c
     assert "added=1" in captured.out
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/ingestion/test_cli.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.ingestion.cli'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/ingestion/cli.py`:
 
@@ -1655,12 +1655,12 @@ if __name__ == "__main__":
     main()
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/ingestion/test_cli.py -v`
 Expected: PASS (1 test)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/ingestion/cli.py apps/api/tests/ingestion/test_cli.py
