@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Integer, Text
+from sqlalchemy import Computed, DateTime, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,7 +46,9 @@ class Chunk(Base):
     content_with_context: Mapped[str] = mapped_column(Text, nullable=False)
     token_count: Mapped[int | None] = mapped_column()
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBEDDING_DIM))
-    search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR, Computed("to_tsvector('english', content_with_context)", persisted=True)
+    )
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
 
     note: Mapped["Note"] = relationship(back_populates="chunks")
