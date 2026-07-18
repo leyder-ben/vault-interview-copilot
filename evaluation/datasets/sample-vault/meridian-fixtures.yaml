@@ -1,0 +1,73 @@
+# Sanitized retrieval-evaluation fixtures for sample-vault/ — safe to commit.
+# Hand-authored against the fictional "Meridian" content added in Phase 1
+# (docs/superpowers/plans/2026-07-16-phase-1-vault-indexing.md, Task 11).
+# No real project names or real infrastructure details — see
+# evaluation/datasets/private/mock-interview-fixtures.yaml (gitignored) for those.
+#
+# Deliberately small: one fixture per distinct piece of sample-vault content
+# rather than a 1:1 mirror of the private set — sample-vault only has 7
+# indexable notes, so there isn't real coverage to pad this out further
+# without inventing content that doesn't back it.
+
+- id: meridian-terraform-state-drift-001
+  query: "terraform state drift"
+  expected_notes:
+    - "02-Technical-Reference/Terraform/Terraform-Fundamentals.md"
+  expected_concepts:
+    - state drift happens when real infrastructure diverges from the state file
+    - usually caused by a manual console change during an incident
+    - detect via a scheduled plan, treat any non-empty diff as a signal
+  expected_personal_project:
+    - Meridian
+
+- id: meridian-terraform-state-locking-002
+  query: "terraform state locking team"
+  expected_notes:
+    - "02-Technical-Reference/Terraform/Terraform-Fundamentals.md"
+  expected_concepts:
+    - S3 backend with DynamoDB-based locking
+    - prevents two people applying at the same time and corrupting state
+  expected_personal_project:
+    - Meridian
+
+- id: meridian-pod-vs-node-scaling-003
+  query: "pod scaling vs node scaling"
+  expected_notes:
+    - "02-Technical-Reference/Kubernetes/Kubernetes-Fundamentals.md"
+  expected_concepts:
+    - HPA scales pod replicas based on CPU/memory usage
+    - Cluster Autoscaler scales nodes based on whether pending pods can be scheduled
+    - Cluster Autoscaler is configured through the Terraform node group's min/max size
+  expected_personal_project:
+    - Meridian
+
+- id: meridian-gitops-vs-jenkins-004
+  query: "why gitops over jenkins"
+  expected_notes:
+    - "01-Interview-Prep/Project-Talking-Points/Meridian-Tool-Stack-Articulation.md"
+    - "01-Interview-Prep/Technical-Concepts/CICD-Pipeline-Walkthrough.md"
+  expected_concepts:
+    - no long-running server to patch and babysit
+    - pull-based, cluster state reconciled against Git
+    - build stage pushes an image, a separate GitOps controller reconciles the cluster
+  expected_personal_project:
+    - Meridian
+
+- id: meridian-jenkins-docker-daemon-005
+  query: "jenkins cant containerize docker plugin"
+  expected_notes:
+    - "02-Technical-Reference/Troubleshooting-Log/Interview-Ready-Troubleshooting-Stories.md"
+  expected_concepts:
+    - Docker plugin only manages Jenkins-side configuration
+    - does not grant the agent access to an actual Docker daemon
+    - fix was mounting the host's Docker socket into the agent container
+  expected_personal_project:
+    - Meridian
+
+- id: meridian-headingless-note-followup-006
+  query: "node scaling cluster autoscaler config location"
+  expected_notes:
+    - "00-Inbox/Quick-Note-Kubernetes-Question.md"
+  expected_concepts:
+    - open question about whether Cluster Autoscaler config lives in the Terraform node group definition
+  expected_personal_project: []
