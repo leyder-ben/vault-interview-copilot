@@ -8,7 +8,7 @@ def test_main_runs_index_and_prints_summary(tmp_path, db_session, monkeypatch, c
     monkeypatch.setattr(cli_module.settings, "vault_path", str(tmp_path))
     monkeypatch.setattr(cli_module, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(
-        cli_module, "OllamaEmbeddingProvider", lambda base_url: FakeEmbeddingProvider()
+        cli_module, "OllamaEmbeddingProvider", lambda base_url, model=None: FakeEmbeddingProvider()
     )
 
     cli_module.main()

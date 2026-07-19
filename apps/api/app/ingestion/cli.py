@@ -28,7 +28,9 @@ def main(argv: list[str] | None = None) -> None:
 
     session = SessionLocal()
     try:
-        provider = OllamaEmbeddingProvider(base_url=settings.ollama_workstation_url)
+        provider = OllamaEmbeddingProvider(
+            base_url=settings.ollama_workstation_url, model=settings.embedding_model
+        )
         result = run_index(
             session,
             vault_path,

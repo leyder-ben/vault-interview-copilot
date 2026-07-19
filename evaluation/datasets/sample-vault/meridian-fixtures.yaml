@@ -11,6 +11,7 @@
 
 - id: meridian-terraform-state-drift-001
   query: "terraform state drift"
+  interviewer_phrasing: "Walk me through how you actually manage your infrastructure once it's live — how do you know if something's drifted from what's in your Terraform config?"
   expected_notes:
     - "02-Technical-Reference/Terraform/Terraform-Fundamentals.md"
   expected_concepts:
@@ -22,6 +23,7 @@
 
 - id: meridian-terraform-state-locking-002
   query: "terraform state locking team"
+  interviewer_phrasing: "If you've got multiple people on a team all running Terraform, how do you keep the state file from getting corrupted?"
   expected_notes:
     - "02-Technical-Reference/Terraform/Terraform-Fundamentals.md"
   expected_concepts:
@@ -32,6 +34,7 @@
 
 - id: meridian-pod-vs-node-scaling-003
   query: "pod scaling vs node scaling"
+  interviewer_phrasing: "Can you describe the difference between how your pods scale and how your underlying nodes scale?"
   expected_notes:
     - "02-Technical-Reference/Kubernetes/Kubernetes-Fundamentals.md"
   expected_concepts:
@@ -43,6 +46,7 @@
 
 - id: meridian-gitops-vs-jenkins-004
   query: "why gitops over jenkins"
+  interviewer_phrasing: "Why did you go with a GitOps-style setup instead of just running everything through a Jenkins server?"
   expected_notes:
     - "01-Interview-Prep/Project-Talking-Points/Meridian-Tool-Stack-Articulation.md"
     - "01-Interview-Prep/Technical-Concepts/CICD-Pipeline-Walkthrough.md"
@@ -55,6 +59,7 @@
 
 - id: meridian-jenkins-docker-daemon-005
   query: "jenkins cant containerize docker plugin"
+  interviewer_phrasing: "Say your Jenkins pipeline can't containerize the app even though the Docker plugin's installed — what would you check?"
   expected_notes:
     - "02-Technical-Reference/Troubleshooting-Log/Interview-Ready-Troubleshooting-Stories.md"
   expected_concepts:
@@ -66,6 +71,7 @@
 
 - id: meridian-headingless-note-followup-006
   query: "node scaling cluster autoscaler config location"
+  interviewer_phrasing: "Where does the actual configuration for your Cluster Autoscaler live?"
   expected_notes:
     - "00-Inbox/Quick-Note-Kubernetes-Question.md"
   expected_concepts:

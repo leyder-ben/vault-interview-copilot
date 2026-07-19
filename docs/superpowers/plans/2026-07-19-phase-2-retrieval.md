@@ -35,7 +35,7 @@
 - Consumes: nothing from earlier tasks (this is the first Phase 2 task).
 - Produces: `chunks.search_vector` becomes a Postgres `GENERATED ALWAYS AS (to_tsvector('english', content_with_context)) STORED` column, automatically populated on every insert/update. Consumed by Task 3 (full-text search) and Task 4/Task 12 (evaluation harness, indirectly).
 
-- [ ] **Step 1: Write the failing test — migration backfills pre-existing rows**
+- [x] **Step 1: Write the failing test — migration backfills pre-existing rows**
 
 This test proves the exact mechanic verified manually during design: downgrade to `0001`, insert a chunk row via raw SQL (bypassing the ORM, since the ORM model will already declare the future generated column), upgrade to `0002`, assert `search_vector` was backfilled correctly for that pre-existing row — not just for rows inserted after the migration.
 
@@ -107,12 +107,12 @@ def test_0002_backfills_search_vector_for_preexisting_chunks(db_engine):
 
 `apps/api/tests/test_migrations.py` already imports `sqlalchemy as sa` and uses a `db_engine` fixture per the existing file (Phase 0) — check the existing file's imports and top-of-file fixtures before appending, don't duplicate an `import sqlalchemy as sa` line if one already exists.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/test_migrations.py::test_0002_backfills_search_vector_for_preexisting_chunks -v`
 Expected: FAIL — `alembic.util.exc.CommandError` or similar, because revision `0002` doesn't exist yet.
 
-- [ ] **Step 3: Write the migration**
+- [x] **Step 3: Write the migration**
 
 Create `apps/api/alembic/versions/0002_chunks_search_vector_generated.py`:
 
@@ -167,12 +167,12 @@ def downgrade() -> None:
     op.create_index("ix_chunks_search_vector", "chunks", ["search_vector"], postgresql_using="gin")
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/test_migrations.py -v`
 Expected: PASS (all tests in the file, old and new).
 
-- [ ] **Step 5: Update the SQLAlchemy model to match**
+- [x] **Step 5: Update the SQLAlchemy model to match**
 
 Modify `apps/api/app/db/models.py`. Add the import and change the `search_vector` column definition:
 
@@ -194,12 +194,12 @@ to:
     )
 ```
 
-- [ ] **Step 6: Run the full test suite to check for regressions**
+- [x] **Step 6: Run the full test suite to check for regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS (all tests, old and new). This confirms Phase 1's indexer — which never sets `search_vector` explicitly — still works unchanged, since Postgres now computes it automatically.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/alembic/versions/0002_chunks_search_vector_generated.py apps/api/app/db/models.py apps/api/tests/test_migrations.py
@@ -220,7 +220,7 @@ git commit -m "feat(retrieval): make chunks.search_vector a Postgres-generated c
 - Consumes: nothing from earlier tasks.
 - Produces: `ALIASES: dict[str, str]`, `normalize_query(raw: str) -> str`. Consumed by `search()` (Task 6).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/app/retrieval/__init__.py` (empty) and `apps/api/tests/retrieval/__init__.py` (empty).
 
@@ -255,12 +255,12 @@ def test_preserves_exact_technical_tokens_not_in_glossary():
     assert normalize_query("pve-dain OIDC") == "pve-dain oidc"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_normalize.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.normalize'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/normalize.py`:
 
@@ -292,12 +292,12 @@ def normalize_query(raw: str) -> str:
     return " ".join(expanded)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_normalize.py -v`
 Expected: PASS (6 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/__init__.py apps/api/app/retrieval/normalize.py apps/api/tests/retrieval/__init__.py apps/api/tests/retrieval/test_normalize.py
@@ -316,7 +316,7 @@ git commit -m "feat(retrieval): add query normalization with alias glossary"
 - Consumes: `Chunk`, `Note` models (`app.db.models`, already exist; `Chunk.search_vector` is now a generated column per Task 1).
 - Produces: `ScoredChunk(chunk_id: int, vault_path: str, heading_path: str | None, rank: int, score: float)`, `search_fulltext(session: Session, query: str, limit: int = 20) -> list[ScoredChunk]`. `ScoredChunk` is consumed by Task 4 (vector search, same shape), Task 5 (fusion), Task 6 (search orchestration), and Task 7 (debug endpoint).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_fulltext.py`:
 
@@ -403,12 +403,12 @@ def test_search_fulltext_respects_limit(db_session):
     assert len(results) == 3
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fulltext.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.fulltext'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/fulltext.py`:
 
@@ -451,12 +451,12 @@ def search_fulltext(session: Session, query: str, limit: int = 20) -> list[Score
     ]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fulltext.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/fulltext.py apps/api/tests/retrieval/test_fulltext.py
@@ -475,7 +475,7 @@ git commit -m "feat(retrieval): add full-text search via websearch_to_tsquery"
 - Consumes: `ScoredChunk` (Task 3, same dataclass reused — do not redefine it). `Chunk.embedding` (`pgvector.sqlalchemy.Vector(768)`, already exists from Phase 0/1).
 - Produces: `search_vector_similarity(session: Session, query_embedding: list[float], limit: int = 20) -> list[ScoredChunk]`. Named `search_vector_similarity`, not `search_vector`, to avoid colliding with the `Chunk.search_vector` column/attribute name used throughout the codebase. Consumed by Task 5 (fusion) and Task 6 (search orchestration).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_vector.py`:
 
@@ -575,12 +575,12 @@ def test_search_vector_similarity_excludes_chunks_with_no_embedding(db_session):
     assert {r.vault_path for r in results} == {"HasEmbedding.md"}
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_vector.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.vector'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/vector.py`:
 
@@ -621,12 +621,12 @@ def search_vector_similarity(
 
 `score` is `1 - cosine_distance` (i.e. cosine similarity, higher is better) so `ScoredChunk.score` means "higher is better" consistently across both `fulltext.py` and `vector.py` — important for Task 5's fusion and Task 7's debug output to stay consistent.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_vector.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/vector.py apps/api/tests/retrieval/test_vector.py
@@ -647,7 +647,7 @@ git commit -m "feat(retrieval): add pgvector cosine-similarity search"
 
 This is a pure function — no database, no fixtures beyond hand-built `ScoredChunk` lists.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_fusion.py`:
 
@@ -699,12 +699,12 @@ def test_empty_inputs_produce_empty_output():
     assert reciprocal_rank_fusion([], [], k=60) == []
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fusion.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.fusion'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/fusion.py`:
 
@@ -772,12 +772,12 @@ def reciprocal_rank_fusion(
     ]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fusion.py -v`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/fusion.py apps/api/tests/retrieval/test_fusion.py
@@ -796,7 +796,7 @@ git commit -m "feat(retrieval): add reciprocal rank fusion"
 - Consumes: `normalize_query` (Task 2), `search_fulltext` (Task 3), `search_vector_similarity` (Task 4), `reciprocal_rank_fusion` (Task 5), `EmbeddingProvider` protocol (`app.ingestion.embeddings`, already exists — `embed_batch(texts: list[str]) -> list[list[float]]`).
 - Produces: `RetrievalResult(raw_query: str, normalized_query: str, fulltext_results: list[ScoredChunk], vector_results: list[ScoredChunk], fused_results: list[FusedResult], timing_ms: dict[str, float])`, `search(session: Session, embedding_provider: EmbeddingProvider, raw_query: str) -> RetrievalResult`. Consumed by Task 7 (debug endpoint) and Task 9 (evaluation runner).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_search.py`:
 
@@ -872,12 +872,12 @@ def test_search_populates_timing_ms_keys(db_session):
     assert all(isinstance(v, float) for v in result.timing_ms.values())
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_search.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.search'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/search.py`:
 
@@ -941,12 +941,12 @@ def search(session: Session, embedding_provider: EmbeddingProvider, raw_query: s
     )
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_search.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/search.py apps/api/tests/retrieval/test_search.py
@@ -966,7 +966,7 @@ git commit -m "feat(retrieval): add search() orchestrating normalize -> embed ->
 - Consumes: `search` (Task 6), `get_db` (`app.api.deps`, already exists), `settings.ollama_workstation_url`/`settings.embedding_model` (`app.core.config`, already exist), `OllamaEmbeddingProvider` (`app.ingestion.embeddings`, already exists).
 - Produces: `GET /api/debug/retrieve?q=...` route.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/test_retrieval_debug.py`:
 
@@ -1039,12 +1039,12 @@ def test_debug_retrieve_requires_q_param(db_session):
         app.dependency_overrides.clear()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/test_retrieval_debug.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.api.retrieval_debug'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/api/retrieval_debug.py`:
 
@@ -1119,17 +1119,17 @@ app.include_router(index_status_router)
 app.include_router(retrieval_debug_router)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/test_retrieval_debug.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Run the full test suite to check for regressions**
+- [x] **Step 5: Run the full test suite to check for regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS (all tests, old and new)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/app/api/retrieval_debug.py apps/api/app/main.py apps/api/tests/test_retrieval_debug.py
@@ -1152,7 +1152,7 @@ git commit -m "feat(api): add GET /api/debug/retrieve, a no-LLM retrieval debug 
 
 These are pure functions — no database.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/app/evaluation/__init__.py` (empty) and `apps/api/tests/evaluation/__init__.py` (empty).
 
@@ -1225,12 +1225,12 @@ def test_percentile_p95_of_sorted_values():
     assert percentile(list(range(1, 101)), 95) == 95.05
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/evaluation/test_metrics.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.evaluation.metrics'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/evaluation/metrics.py`:
 
@@ -1273,12 +1273,12 @@ def percentile(values: list[float], p: float) -> float:
     return sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * fraction
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/evaluation/test_metrics.py -v`
 Expected: PASS (10 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/evaluation/__init__.py apps/api/app/evaluation/metrics.py apps/api/tests/evaluation/__init__.py apps/api/tests/evaluation/test_metrics.py
@@ -1297,7 +1297,7 @@ git commit -m "feat(evaluation): add recall/MRR/exact-match/percentile metrics"
 - Consumes: `search` (Task 6), `hit_at_k`/`reciprocal_rank`/`exact_match`/`percentile` (Task 8), `EmbeddingProvider` (`app.ingestion.embeddings`).
 - Produces: `Fixture(id: str, query: str, interviewer_phrasing: str | None, expected_notes: list[str])`, `load_fixtures(path: str) -> list[Fixture]`, `FixtureResult(fixture_id: str, query_form: str, query_text: str, hit_at_5: bool, hit_at_10: bool, reciprocal_rank: float, exact_match: bool, latency_ms: float)`, `EvalGroupMetrics(recall_at_5: float, recall_at_10: float, mrr: float, exact_match_rate: float, latency_p50_ms: float, latency_p95_ms: float)`, `EvalReport(shorthand: EvalGroupMetrics, natural: EvalGroupMetrics, results: list[FixtureResult])`, `run_eval(session: Session, embedding_provider: EmbeddingProvider, fixtures: list[Fixture]) -> EvalReport`. Consumed by Task 10 (CLI) and Task 12 (exit-condition test).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/evaluation/test_runner.py`:
 
@@ -1426,12 +1426,12 @@ def test_run_eval_skips_natural_form_when_absent(db_session, tmp_path):
     assert report.results[0].query_form == "shorthand"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/evaluation/test_runner.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.evaluation.runner'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/evaluation/runner.py`:
 
@@ -1547,12 +1547,12 @@ def run_eval(session: Session, embedding_provider: EmbeddingProvider, fixtures: 
     )
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/evaluation/test_runner.py -v`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/evaluation/runner.py apps/api/tests/evaluation/test_runner.py
@@ -1571,7 +1571,7 @@ git commit -m "feat(evaluation): add fixture loader and eval runner, scoring bot
 - Consumes: `load_fixtures`, `run_eval` (Task 9), `settings` (`app.core.config`), `SessionLocal` (`app.db.base`), `OllamaEmbeddingProvider` (`app.ingestion.embeddings`).
 - Produces: `main(argv: list[str] | None = None) -> None`, runnable as `python -m app.evaluation.cli --dataset {sample-vault|private}`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/evaluation/test_cli.py`:
 
@@ -1652,12 +1652,12 @@ def test_main_runs_eval_and_prints_both_forms(tmp_path, db_session, monkeypatch,
     assert "Recall@5" in captured.out
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/evaluation/test_cli.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.evaluation.cli'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/evaluation/cli.py`:
 
@@ -1725,12 +1725,12 @@ if __name__ == "__main__":
 
 `DATASET_PATHS` uses relative paths from `apps/api/` (matching where `python -m app.evaluation.cli` is run from, per the established Phase 1 CLI convention) — resolve to repo-root-relative `evaluation/datasets/...`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/evaluation/test_cli.py -v`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/evaluation/cli.py apps/api/tests/evaluation/test_cli.py
@@ -1750,7 +1750,7 @@ git commit -m "feat(evaluation): add python -m app.evaluation.cli"
 
 **Why this is a task, not optional polish:** per the design spec, automated/CI runs only ever use `sample-vault` (the private set requires the real vault, run manually). Without `interviewer_phrasing` on these 6 fixtures, the Phase 2 exit-condition proof would never test whether normalization actually helps — it would only prove retrieval works on input that barely needed normalizing.
 
-- [ ] **Step 1: Add `interviewer_phrasing` to each of the 6 fixtures**
+- [x] **Step 1: Add `interviewer_phrasing` to each of the 6 fixtures**
 
 Modify `evaluation/datasets/sample-vault/meridian-fixtures.yaml`. Insert an `interviewer_phrasing` line immediately after each fixture's `query` line, exactly as shown (six additions, one per fixture, nothing else in the file changes):
 
@@ -1784,7 +1784,7 @@ After `query: "node scaling cluster autoscaler config location"` (fixture `merid
   interviewer_phrasing: "Where does the actual configuration for your Cluster Autoscaler live?"
 ```
 
-- [ ] **Step 2: Validate the YAML still parses and every fixture has both fields**
+- [x] **Step 2: Validate the YAML still parses and every fixture has both fields**
 
 Run:
 ```bash
@@ -1801,7 +1801,7 @@ print('OK:', len(data), 'fixtures, all with interviewer_phrasing')
 ```
 Expected: `OK: 6 fixtures, all with interviewer_phrasing`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add evaluation/datasets/sample-vault/meridian-fixtures.yaml
@@ -1828,7 +1828,7 @@ only shorthand. Matches the private fixture set's structure."
 - **Allowed:** if a specific fixture misses because of an actual bug in the retrieval code (wrong RRF weighting, a normalization gap, a query that should have matched but didn't due to a defect), fix that *code*, then re-run once. Whatever number comes back from that one re-run is the threshold you commit.
 - **Not allowed, under any circumstance:** editing `meridian-fixtures.yaml`'s `expected_notes`, wording, or dropping a fixture to make the number climb. That is not "fixing" anything — it's inventing a passing test instead of proving the exit condition. If you find yourself opening the fixture file to make this test pass, stop and report the specific miss as a finding instead of editing it.
 
-- [ ] **Step 1: Index `sample-vault` for real, into the same Postgres the test will query**
+- [x] **Step 1: Index `sample-vault` for real, into the same Postgres the test will query**
 
 The `db_session` fixture (`apps/api/tests/conftest.py`) migrates and truncates a **fresh** schema per test — it does not contain `sample-vault`'s content. This task needs `sample-vault` actually indexed within the test itself, using the real chunker/parser/scanner pipeline (not hand-built `Note`/`Chunk` rows like earlier tasks' unit tests), so the eval is scored against real chunk boundaries and real heading structure, not simplified test fixtures.
 
@@ -1866,13 +1866,13 @@ def test_shorthand_recall_at_5_meets_measured_threshold(db_session):
 
 The `>= 1.0` above is a **starting placeholder for the first run only** — it exists so the test can execute at all. It is expected to either pass outright (if the real measurement is 100%) or fail with a specific, informative number (e.g. `assert 0.833... >= 1.0`), which is exactly what Step 2 needs to see. This is not the "no placeholders" violation the plan process normally forbids — it's the deliberate first data point in a measure-then-lock process the design spec explicitly calls for; leaving it at `1.0` after Step 2 without adjusting it to the real measured value would be the actual violation.
 
-- [ ] **Step 2: Run the test to get the real measurement**
+- [x] **Step 2: Run the test to get the real measurement**
 
 Run: `cd apps/api && pytest tests/evaluation/test_retrieval_eval.py -v -s`
 
 Record the exact `recall_at_5` value from the assertion failure output (or PASS, if it's already 100%). If it fails, the pytest output shows the real value, e.g. `assert 0.8333333333333334 >= 1.0`.
 
-- [ ] **Step 3: If below 100%, investigate — retrieval code only**
+- [x] **Step 3: If below 100%, investigate — retrieval code only**
 
 If Step 2 showed less than 100%: for each fixture that missed, run `python -m app.evaluation.cli --dataset sample-vault` (Task 10) or inspect `report.results` directly to see which specific fixture(s) missed and in which query form (shorthand vs. natural). For each miss, determine: is this a genuine retrieval defect (e.g., `websearch_to_tsquery` mishandling a specific phrase, RRF favoring the wrong candidate, an alias that should have expanded but didn't), or is the fixture asking for something retrieval structurally can't be expected to find yet (e.g., a concept covered only in `expected_concepts` prose, not in the actual chunk text)?
 
@@ -1880,7 +1880,7 @@ If it's a genuine code defect: fix it in the relevant `app/retrieval/` module, r
 
 If it's not a code defect (the fixture is legitimately hard, or is testing something out of Phase 2's scope): the measured number — including the miss — is what gets locked in. This is real information about where the system stands, not a problem to make disappear.
 
-- [ ] **Step 4: Lock in the real threshold**
+- [x] **Step 4: Lock in the real threshold**
 
 Edit `apps/api/tests/evaluation/test_retrieval_eval.py`, replacing the `>= 1.0` placeholder with the actual measured value from whichever run (Step 2's first run, or Step 3's one re-run) is the final one:
 
@@ -1893,17 +1893,17 @@ Edit `apps/api/tests/evaluation/test_retrieval_eval.py`, replacing the `>= 1.0` 
 
 Replace `<ACTUAL_MEASURED_VALUE>` and the date comment with the real number and today's actual date — this plan cannot know that value in advance, by design.
 
-- [ ] **Step 5: Run the test to verify it passes at the locked threshold**
+- [x] **Step 5: Run the test to verify it passes at the locked threshold**
 
 Run: `cd apps/api && pytest tests/evaluation/test_retrieval_eval.py -v`
 Expected: PASS.
 
-- [ ] **Step 6: Run the full test suite to confirm no regressions**
+- [x] **Step 6: Run the full test suite to confirm no regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS, full suite green. This is the last task of Phase 2 — a regression here could mean something in Tasks 1-11 broke Phase 1's existing behavior.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/tests/evaluation/test_retrieval_eval.py
@@ -1914,6 +1914,16 @@ queries consistently retrieve the expected sample notes. Threshold is the
 real value measured against sample-vault + retrofitted interviewer_phrasing
 fixtures, not an invented target."
 ```
+
+**Post-Task-12 real-embedding verification (2026-07-19):** Task 12's automated exit-condition test uses `FakeEmbeddingProvider` (deterministic hash vectors, no live Ollama needed for CI) — the final whole-branch review correctly flagged that this means the CI gate's `Recall@5 = 1.0` is carried entirely by the full-text channel, with the vector arm contributing only noise, so the "hybrid retrieval" design isn't validated by the automated gate alone. Ran the manual verification this implies: indexed `sample-vault` for real (`python -m app.ingestion.cli`, real `nomic-embed-text` embeddings) against the persistent dev Postgres, then `python -m app.evaluation.cli --dataset sample-vault`:
+
+```
+Shorthand: Recall@5: 100%  Recall@10: 100%  MRR: 0.89  Exact match: 83%
+Natural phrasing: Recall@5: 100%  Recall@10: 100%  MRR: 0.83  Exact match: 67%
+Retrieval latency: p50 39ms, p95 55ms
+```
+
+Both query forms hit 100% Recall@5 with real semantic vector search actually contributing (not fake noise) — the hybrid pipeline's semantic arm is genuinely validated, not just asserted. This is a manual, point-in-time measurement (mirrors Phase 1's optional real-Ollama CLI verification pattern) — not re-run automatically in CI.
 
 ---
 
