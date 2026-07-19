@@ -16,7 +16,7 @@ The generation model changed since `04-generation.md` and `11-locked-decisions.m
 
 - `docs/architecture/04-generation.md`: update model reference.
 - `docs/architecture/11-locked-decisions.md`: update the "Model selection" section. Also remove the "fits both boxes" claim as settled fact — it was true for Qwen2.5 14B Q4 on the 3060's 12GB VRAM, but is an open question for a 20.9B MXFP4 model on the same box. Doesn't block this phase (provider switching to the ai-inference VM is explicitly deferred, see below), but the doc shouldn't assert something that hasn't been checked.
-- `apps/api/app/core/config.py`: `generation_model` default `"qwen2.5:14b"` → `"gpt-oss:20b"`.
+- `apps/api/app/core/config.py`: `generation_model` default `"qwen2.5:14b"` → `"gpt-oss:20b"`. Also add `abstention_score_threshold: float`, the tier-2 pre-check value described in "Query flow" below — measured during this phase's build, not a placeholder default guessed up front.
 
 Verified live against the running model during design: `/api/chat` with `format=<json_schema>` against `gpt-oss:20b` returns clean, schema-valid JSON on the first attempt (tested with a 4-field schema subset and a real context chunk). `/api/chat` is used over `/api/generate` — its `system`/`user` message roles map directly onto the three-way prompt separation required by `08-security-privacy.md`.
 
@@ -79,19 +79,35 @@ retrieval.context.select()            -- NEW: hydrate chunk content, dedup by no
     |                                     project evidence, trim to token/count budget
     |                                     -> list[RetrievedChunk] (id, path, heading, content, score)
     v
-retrieval-quality pre-check           -- empty context OR top fused score below a measured threshold
-    |                                     (measured against eval fixtures, not guessed)
+    (context selection and retrieval ABOVE this point run unconditionally, regardless of mode --
+     QueryRun telemetry should show what a real explain/compare/troubleshoot/example query would
+     have retrieved even though only "speakable" has generation logic behind it yet)
     |
-    +-- FAILS --> deterministic abstention AnswerDraft, skip LLM entirely, confidence=LOW
+    v
+mode == "speakable"?
     |
-    +-- PASSES
+    +-- NO  --> fixed stub AnswerDraft ("mode not implemented"), skip pre-check and LLM entirely
+    |            (mode-not-built and evidence-quality are different facts -- don't conflate them
+    |             by routing an unimplemented mode through the abstention path)
+    |
+    +-- YES
          |
          v
-    mode == "speakable"?
+    retrieval-quality pre-check
+         |    tier 1 (deterministic, no tuning): zero fused results -> abstain. Always correct;
+         |      this is what actually carries the exit condition's guarantee.
+         |    tier 2 (measured heuristic): top fused RRF score below `settings.abstention_score_
+         |      threshold` -> abstain. Value is measured during THIS phase's build, not guessed:
+         |      run eval fixtures (incl. new `expected_abstain` cases) through retrieval, inspect
+         |      the score distribution, pick the value that separates "should answer" from "should
+         |      abstain" -- same discipline Recall@5=1.0 got in Phase 2. Primary calibration against
+         |      sample-vault (CI-gated); private fixtures as a secondary real-world sanity check.
+         |      Revisit if sample-vault's 7-note fixture set proves too small to trust once private
+         |      data is available.
          |
-         +-- NO  --> fixed stub AnswerDraft ("mode not implemented"), skip LLM entirely
+         +-- FAILS --> deterministic abstention AnswerDraft, skip LLM entirely, confidence=LOW
          |
-         +-- YES
+         +-- PASSES
               |
               v
          generation.prompt.build_prompt()   -- 3-way separated: system instructions (grounding rules,
@@ -118,12 +134,17 @@ retrieval-quality pre-check           -- empty context OR top fused score below 
          retrieval.sources.resolve_sources(surviving chunk ids)  -- DB-only, path/heading/lines
               |
               v
-         response assembled: answer, sources (resolved paths + retrieval scores merged in by the
-           caller here, not by resolve_sources itself), confidence, limitations, timing_ms
-              |
-              v
-         QueryRun row written (raw/normalized query, mode, per-stage latencies, retrieved chunk ids +
-           scores, selected source ids, provider/model name) -- skipped if query_logging=False
+    (all three paths -- mode stub, abstention, and generated-answer -- converge here; a stub or
+     abstention AnswerDraft simply has an empty citation list, so resolve_sources is a no-op for them)
+    |
+    v
+response assembled: answer, sources (resolved paths + retrieval scores merged in by the caller
+  here, not by resolve_sources itself), confidence, limitations, timing_ms
+    |
+    v
+QueryRun row written (raw/normalized query, mode, per-stage latencies, retrieved chunk ids +
+  scores -- populated even for the mode-stub/abstention paths, since retrieval ran regardless --
+  selected source ids, provider/model name) -- skipped if query_logging=False
 ```
 
 ## Structured output schema (`generation/schema.py`)
@@ -155,7 +176,7 @@ class AnswerDraft(BaseModel):        # exact shape the LLM is constrained to emi
     limitations: list[str]
 ```
 
-`response_mode` is a request parameter (selects prompt template + service path), not a field on `AnswerDraft`. Confidence downgrade order: `HIGH -> MEDIUM -> LOW`; `LOW` is a hard floor.
+`response_mode` is a request parameter (selects prompt template + service path), not a field on `AnswerDraft`. Confidence downgrade order: `HIGH -> MEDIUM -> LOW`; `LOW` is a hard floor. The downgrade rule is deliberately binary — any citation dropped (whether it's one stray ID out of a long list or most of the list) triggers exactly one level of downgrade, not a severity-proportional drop. This is a first-pass simplification, not an oversight: there's no evidence yet that proportional downgrade severity matters more than the simple binary rule, and building that precision without data to justify it would cut against the same "measure before adding complexity" principle this whole phase leans on elsewhere.
 
 ## Ollama LLM provider (`providers/llm.py`)
 
@@ -173,6 +194,8 @@ class LLMProvider(Protocol):
 ## Evaluation harness extension
 
 New fixture field: `expected_abstain: bool` — cases where the sample/private vault genuinely lacks evidence for the query, used to assert the pre-check short-circuits correctly. New sanitized fixtures needed in `evaluation/datasets/sample-vault/` and corresponding private fixtures (both gated by "don't invent examples when patterns already exist" — reuse `meridian-fixtures.yaml`'s categories where a no-evidence variant makes sense).
+
+Build-order dependency: `expected_abstain` fixtures must exist and run through `retrieval.search()` **before** `abstention_score_threshold` is picked — the threshold is calibrated *from* the resulting score distribution, not decided ahead of it. This makes the "measure the threshold" step its own implementation-plan task, sequenced after the fixture task and before the `generation.service` pre-check task, with the measured value and methodology written into the plan doc the same way Phase 2 recorded Recall@5=1.0.
 
 Automated generation metrics (extending `app/evaluation/metrics.py`):
 - Citation validity — every `used_source_chunk_ids` in the response resolves to a path in the fixture's `expected_notes`.
