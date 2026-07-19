@@ -1828,7 +1828,7 @@ only shorthand. Matches the private fixture set's structure."
 - **Allowed:** if a specific fixture misses because of an actual bug in the retrieval code (wrong RRF weighting, a normalization gap, a query that should have matched but didn't due to a defect), fix that *code*, then re-run once. Whatever number comes back from that one re-run is the threshold you commit.
 - **Not allowed, under any circumstance:** editing `meridian-fixtures.yaml`'s `expected_notes`, wording, or dropping a fixture to make the number climb. That is not "fixing" anything — it's inventing a passing test instead of proving the exit condition. If you find yourself opening the fixture file to make this test pass, stop and report the specific miss as a finding instead of editing it.
 
-- [ ] **Step 1: Index `sample-vault` for real, into the same Postgres the test will query**
+- [x] **Step 1: Index `sample-vault` for real, into the same Postgres the test will query**
 
 The `db_session` fixture (`apps/api/tests/conftest.py`) migrates and truncates a **fresh** schema per test — it does not contain `sample-vault`'s content. This task needs `sample-vault` actually indexed within the test itself, using the real chunker/parser/scanner pipeline (not hand-built `Note`/`Chunk` rows like earlier tasks' unit tests), so the eval is scored against real chunk boundaries and real heading structure, not simplified test fixtures.
 
@@ -1866,13 +1866,13 @@ def test_shorthand_recall_at_5_meets_measured_threshold(db_session):
 
 The `>= 1.0` above is a **starting placeholder for the first run only** — it exists so the test can execute at all. It is expected to either pass outright (if the real measurement is 100%) or fail with a specific, informative number (e.g. `assert 0.833... >= 1.0`), which is exactly what Step 2 needs to see. This is not the "no placeholders" violation the plan process normally forbids — it's the deliberate first data point in a measure-then-lock process the design spec explicitly calls for; leaving it at `1.0` after Step 2 without adjusting it to the real measured value would be the actual violation.
 
-- [ ] **Step 2: Run the test to get the real measurement**
+- [x] **Step 2: Run the test to get the real measurement**
 
 Run: `cd apps/api && pytest tests/evaluation/test_retrieval_eval.py -v -s`
 
 Record the exact `recall_at_5` value from the assertion failure output (or PASS, if it's already 100%). If it fails, the pytest output shows the real value, e.g. `assert 0.8333333333333334 >= 1.0`.
 
-- [ ] **Step 3: If below 100%, investigate — retrieval code only**
+- [x] **Step 3: If below 100%, investigate — retrieval code only**
 
 If Step 2 showed less than 100%: for each fixture that missed, run `python -m app.evaluation.cli --dataset sample-vault` (Task 10) or inspect `report.results` directly to see which specific fixture(s) missed and in which query form (shorthand vs. natural). For each miss, determine: is this a genuine retrieval defect (e.g., `websearch_to_tsquery` mishandling a specific phrase, RRF favoring the wrong candidate, an alias that should have expanded but didn't), or is the fixture asking for something retrieval structurally can't be expected to find yet (e.g., a concept covered only in `expected_concepts` prose, not in the actual chunk text)?
 
@@ -1880,7 +1880,7 @@ If it's a genuine code defect: fix it in the relevant `app/retrieval/` module, r
 
 If it's not a code defect (the fixture is legitimately hard, or is testing something out of Phase 2's scope): the measured number — including the miss — is what gets locked in. This is real information about where the system stands, not a problem to make disappear.
 
-- [ ] **Step 4: Lock in the real threshold**
+- [x] **Step 4: Lock in the real threshold**
 
 Edit `apps/api/tests/evaluation/test_retrieval_eval.py`, replacing the `>= 1.0` placeholder with the actual measured value from whichever run (Step 2's first run, or Step 3's one re-run) is the final one:
 
@@ -1893,17 +1893,17 @@ Edit `apps/api/tests/evaluation/test_retrieval_eval.py`, replacing the `>= 1.0` 
 
 Replace `<ACTUAL_MEASURED_VALUE>` and the date comment with the real number and today's actual date — this plan cannot know that value in advance, by design.
 
-- [ ] **Step 5: Run the test to verify it passes at the locked threshold**
+- [x] **Step 5: Run the test to verify it passes at the locked threshold**
 
 Run: `cd apps/api && pytest tests/evaluation/test_retrieval_eval.py -v`
 Expected: PASS.
 
-- [ ] **Step 6: Run the full test suite to confirm no regressions**
+- [x] **Step 6: Run the full test suite to confirm no regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS, full suite green. This is the last task of Phase 2 — a regression here could mean something in Tasks 1-11 broke Phase 1's existing behavior.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/tests/evaluation/test_retrieval_eval.py
