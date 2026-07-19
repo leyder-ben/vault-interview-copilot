@@ -796,7 +796,7 @@ git commit -m "feat(retrieval): add reciprocal rank fusion"
 - Consumes: `normalize_query` (Task 2), `search_fulltext` (Task 3), `search_vector_similarity` (Task 4), `reciprocal_rank_fusion` (Task 5), `EmbeddingProvider` protocol (`app.ingestion.embeddings`, already exists — `embed_batch(texts: list[str]) -> list[list[float]]`).
 - Produces: `RetrievalResult(raw_query: str, normalized_query: str, fulltext_results: list[ScoredChunk], vector_results: list[ScoredChunk], fused_results: list[FusedResult], timing_ms: dict[str, float])`, `search(session: Session, embedding_provider: EmbeddingProvider, raw_query: str) -> RetrievalResult`. Consumed by Task 7 (debug endpoint) and Task 9 (evaluation runner).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_search.py`:
 
@@ -872,12 +872,12 @@ def test_search_populates_timing_ms_keys(db_session):
     assert all(isinstance(v, float) for v in result.timing_ms.values())
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_search.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.search'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/search.py`:
 
@@ -941,12 +941,12 @@ def search(session: Session, embedding_provider: EmbeddingProvider, raw_query: s
     )
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_search.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/search.py apps/api/tests/retrieval/test_search.py
