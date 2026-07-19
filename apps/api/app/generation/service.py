@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.generation.relevance import citation_relevance_score
 from app.generation.schema import (
     AnswerDraft,
     Confidence,
@@ -53,13 +54,40 @@ def _error_draft() -> AnswerDraft:
     )
 
 
+def _is_citation_valid(
+    chunk_id: int,
+    context_ids: set[int],
+    content_by_id: dict[int, str],
+    claim_text: str,
+    relevance_threshold: float,
+) -> bool:
+    """A citation is valid only if the chunk was actually in context (never
+    trust an out-of-context ID) AND its content is lexically relevant to the
+    claim it's attached to. A real, in-context chunk can still be cited for a
+    claim its content doesn't back -- see docs/superpowers/plans/2026-07-19-
+    phase-3-grounded-answers.md's "Citation cross-check verifies membership,
+    not relevance" section for the finding and the measurement behind
+    relevance_threshold."""
+    if chunk_id not in context_ids:
+        return False
+    return citation_relevance_score(content_by_id[chunk_id], claim_text) >= relevance_threshold
+
+
 def _filter_examples(
-    examples: list[PersonalExample], context_ids: set[int]
+    examples: list[PersonalExample],
+    context_ids: set[int],
+    content_by_id: dict[int, str],
+    claim_text: str,
+    relevance_threshold: float,
 ) -> tuple[list[PersonalExample], bool]:
     filtered: list[PersonalExample] = []
     dropped = False
     for example in examples:
-        surviving_ids = [cid for cid in example.source_chunk_ids if cid in context_ids]
+        surviving_ids = [
+            cid
+            for cid in example.source_chunk_ids
+            if _is_citation_valid(cid, context_ids, content_by_id, claim_text, relevance_threshold)
+        ]
         if not surviving_ids:
             dropped = True
             continue
@@ -80,12 +108,15 @@ def answer(
     mode: ResponseMode,
     context: list[RetrievedChunk],
     score_threshold: float | None = None,
+    relevance_threshold: float | None = None,
 ) -> AnswerResult:
     if mode != ResponseMode.SPEAKABLE:
         return AnswerResult(draft=_stub_draft(mode), sources=[])
 
     if score_threshold is None:
         score_threshold = settings.abstention_score_threshold
+    if relevance_threshold is None:
+        relevance_threshold = settings.citation_relevance_threshold
 
     if not context or context[0].rrf_score < score_threshold:
         return AnswerResult(draft=_abstention_draft(), sources=[])
@@ -96,9 +127,16 @@ def answer(
         return AnswerResult(draft=_error_draft(), sources=[])
 
     context_ids = {c.chunk_id for c in context}
-    used_ids = [cid for cid in draft.used_source_chunk_ids if cid in context_ids]
+    content_by_id = {c.chunk_id: c.content for c in context}
+    used_ids = [
+        cid
+        for cid in draft.used_source_chunk_ids
+        if _is_citation_valid(cid, context_ids, content_by_id, draft.say_this, relevance_threshold)
+    ]
     used_dropped = len(used_ids) != len(draft.used_source_chunk_ids)
-    examples, examples_dropped = _filter_examples(draft.personal_examples, context_ids)
+    examples, examples_dropped = _filter_examples(
+        draft.personal_examples, context_ids, content_by_id, draft.say_this, relevance_threshold
+    )
 
     if used_dropped or examples_dropped:
         confidence = downgrade_confidence(draft.confidence)

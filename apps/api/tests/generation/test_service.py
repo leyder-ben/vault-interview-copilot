@@ -78,7 +78,13 @@ def test_strong_score_context_calls_llm_and_resolves_sources(db_session):
     fake = FakeLLMProvider()  # default response cites all given context chunk_ids
 
     result = answer(
-        db_session, fake, "terraform drift", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+        db_session,
+        fake,
+        "terraform drift",
+        ResponseMode.SPEAKABLE,
+        context,
+        score_threshold=0.01,
+        relevance_threshold=0.0,  # this test is about membership + resolution, not relevance
     )
 
     assert len(fake.calls) == 1
@@ -108,7 +114,13 @@ def test_fabricated_used_source_id_is_dropped_and_confidence_downgraded(db_sessi
     fake = FakeLLMProvider(response=fabricated_draft)
 
     result = answer(
-        db_session, fake, "terraform drift", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+        db_session,
+        fake,
+        "terraform drift",
+        ResponseMode.SPEAKABLE,
+        context,
+        score_threshold=0.01,
+        relevance_threshold=0.0,  # this test is about membership, not relevance
     )
 
     assert result.draft.used_source_chunk_ids == [chunk_id]
@@ -169,7 +181,13 @@ def test_personal_example_losing_some_source_ids_keeps_example_with_filtered_ids
     fake = FakeLLMProvider(response=draft)
 
     result = answer(
-        db_session, fake, "query", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+        db_session,
+        fake,
+        "query",
+        ResponseMode.SPEAKABLE,
+        context,
+        score_threshold=0.01,
+        relevance_threshold=0.0,  # this test is about membership, not relevance
     )
 
     assert len(result.draft.personal_examples) == 1
@@ -200,6 +218,121 @@ def test_confidence_downgrade_floor_stays_low(db_session):
     )
 
     assert result.draft.confidence == Confidence.LOW
+
+
+def test_relevant_citation_survives_the_relevance_check(db_session):
+    chunk_id = _make_chunk(
+        db_session,
+        "Terraform.md",
+        "Drift",
+        "State drift happens when infrastructure diverges from the state file, "
+        "usually caused by manual console changes.",
+    )
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="Terraform.md",
+            heading_path="Drift",
+            content="State drift happens when infrastructure diverges from the state file, "
+            "usually caused by manual console changes.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="State drift happens when infrastructure diverges from the state file "
+        "due to manual console changes.",
+        used_source_chunk_ids=[chunk_id],
+        confidence=Confidence.HIGH,
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "terraform drift", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.used_source_chunk_ids == [chunk_id]
+    assert result.draft.confidence == Confidence.HIGH
+    assert len(result.sources) == 1
+
+
+def test_irrelevant_in_context_citation_is_dropped_and_confidence_downgraded(db_session):
+    # chunk_id is a real, in-context ID (passes membership) but its content
+    # has nothing to do with the claim it's cited against -- this is the
+    # gap the plain membership check can't see. See docs/superpowers/plans/
+    # 2026-07-19-phase-3-grounded-answers.md's "Citation cross-check
+    # verifies membership, not relevance" section.
+    chunk_id = _make_chunk(
+        db_session,
+        "Terraform.md",
+        "Drift",
+        "State drift happens when infrastructure diverges from the state file, "
+        "usually caused by manual console changes.",
+    )
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="Terraform.md",
+            heading_path="Drift",
+            content="State drift happens when infrastructure diverges from the state file, "
+            "usually caused by manual console changes.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="I prefer blue-green deployments because they provide a clean "
+        "rollback path with minimal downtime.",
+        used_source_chunk_ids=[chunk_id],
+        confidence=Confidence.HIGH,
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "rollout strategy", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.used_source_chunk_ids == []
+    assert result.draft.confidence == Confidence.MEDIUM
+    assert result.sources == []
+    assert "could not be verified" in " ".join(result.draft.limitations)
+
+
+def test_personal_example_source_id_dropped_for_irrelevance_not_just_membership(db_session):
+    chunk_id = _make_chunk(
+        db_session,
+        "Docker.md",
+        "Fix",
+        "Mounted the host's Docker socket into the agent container so docker build "
+        "had somewhere real to run against.",
+    )
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="Docker.md",
+            heading_path="Fix",
+            content="Mounted the host's Docker socket into the agent container so docker build "
+            "had somewhere real to run against.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="On Meridian I lean toward blue-green deployments for major releases.",
+        personal_examples=[
+            PersonalExample(
+                project="Meridian",
+                example="Prefer blue-green for major releases.",
+                source_chunk_ids=[chunk_id],
+            )
+        ],
+        confidence=Confidence.HIGH,
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "rollout strategy", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.personal_examples == []
+    assert result.draft.confidence == Confidence.MEDIUM
 
 
 def test_generation_error_returns_typed_error_draft(db_session):
