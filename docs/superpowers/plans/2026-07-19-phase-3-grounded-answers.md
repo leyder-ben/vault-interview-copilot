@@ -2757,6 +2757,30 @@ Full request/response bodies for all 10 queries are recorded in `.superpowers/sd
 
 ---
 
+## Citation cross-check verifies membership, not relevance (2026-07-19)
+
+**This is a distinct, more serious finding than the citation-population-reliability work above — it is not a duplicate of that follow-up and should not be folded into it.** The population-reliability work above is about the model sometimes *not citing* when it should. This finding is about what happens when it *does* cite: the backend citation cross-check in `generation/service.py` (`used_ids = [cid for cid in draft.used_source_chunk_ids if cid in context_ids]`, and the equivalent filter on `personal_examples[].source_chunk_ids`) only verifies that a cited chunk ID was present in the context sent to the model. It does not verify that the chunk's actual content supports the specific claim it's attached to. This is exactly what the cross-check was designed to do — prevent a fabricated, out-of-context ID from surviving into a response — and it does that correctly. It was never designed to catch a *real*, in-context chunk being cited for a claim its content doesn't actually back. That's a structural gap in what the cross-check checks for, not a bug in what it currently does.
+
+**How this was found:** while investigating end-to-end latency (see the real end-to-end verification and latency-isolation work above), Ollama's `think` reasoning-effort parameter was found to dramatically affect wall time for `gpt-oss:20b` (a "thinking"-capable model whose default reasoning effort was never explicitly set anywhere in this codebase). Testing `think='low'` as a candidate fix surfaced a citation rate roughly double the default's (~60% vs. ~33%), which prompted the same kind of manual precision audit against actual chunk content that the frontier-model prototype work above had already established as necessary — the automated in-context check alone had already been shown (in the frontier `gpt-4o-mini` prototype) to be insufficient for judging citation quality.
+
+**Measured across three independent conditions, same query** (`"How do you think about rollout strategy — rolling versus blue-green?"`, same `sample-vault` context, chunk 24 = `03-Projects/Meridian/_Source-Docs/Mock-Interview-Notes.md`, the top-ranked context chunk for this query in every run):
+
+| Condition | Citing runs | Cited chunk 24 | Citing runs whose text genuinely references chunk 24's actual content (interview/practice-session framing) |
+|---|---|---|---|
+| Default reasoning (no `think` param set — the behavior every measurement earlier in this document used) | 26 of 36 (from the two local second-pass prototype batches) | not directly logged — those batches recorded a `pass1_had_citation` boolean but not the raw `used_source_chunk_ids`, a real gap in that batch's instrumentation, not re-measured here | 1 of 26 (~4%) |
+| `think='low'`, no prompt change | 18 of 30 | 18 of 18 (100%) | 0 of 18 (0%) |
+| `think='low'`, with a targeted "don't cite on topical adjacency alone" guardrail added to a scratchpad-only copy of the prompt (one bounded attempt, `apps/api/app/generation/prompt.py` itself was never touched) | 19 of 30 | 19 of 19 (100%) | 1 of 19 (~5%)|
+
+The guardrail attempt is a clean negative result: it changed neither the citation rate nor the precision rate in any meaningful way. Three independent conditions — different reasoning effort, different prompt wording — converge on the same ~4-5% figure. That convergence is the actual finding: **this behavior does not depend on reasoning effort or on the specific prompt wording tried, which means it's a structural property of how the model (and possibly the cross-check's blind spot around it) handles the highest-ranked context chunk, not something a prompt tweak or a `think` setting fixes.**
+
+**What is confirmed:** for this specific query and this specific chunk (24 — short, generic, topically dead-on for the query but content-thin), roughly 95-100% of citations attached to it across all three conditions do not trace to its actual content. The backend never surfaces this — every one of these citations passes the existing cross-check cleanly, since chunk 24 is a real, in-context ID.
+
+**What is not confirmed / still unknown:** whether this generalizes beyond chunk 24 specifically (it may be especially prone to this because it's unusually short and topically on-the-nose without much substantive content to actually back a claim), whether it generalizes to other queries (only one query was used for all three conditions), and whether longer or more substantive chunks show the same pattern at a similar, lower, or higher rate. Do not assume this is "the citation cross-check is broadly unreliable" — it is confirmed narrowly, for one chunk shape, on one query, and should be treated as exactly that until measured more broadly.
+
+Per the Decision authority section in `CLAUDE.md`, this finding is not being marked resolved, and no fix is assumed here — see the corresponding entry in `docs/architecture/10-delivery-plan.md`'s Phase 3 section for the exit-condition implication, and whatever prototype work follows this entry in this plan for a candidate fix under evaluation (not yet adopted).
+
+---
+
 ## Summary
 
 Thirteen tasks, in dependency order: move `EmbeddingProvider` into `providers/` → model/config corrections → structured-output schema → source resolution → context selection → `expected_abstain` fixture → measure the abstention threshold (real embeddings) → prompt builder → Ollama LLM adapter + fake → generation orchestration service → `POST /api/query` + telemetry → generation eval metrics → real end-to-end verification. Each task is independently testable and commits on its own. Phase 3's exit condition (`docs/architecture/10-delivery-plan.md`) is satisfied by Tasks 10-11's backend-enforced citation cross-check and retrieval-quality-gated abstention, proven against real data in Task 13.
