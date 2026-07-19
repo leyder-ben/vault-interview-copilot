@@ -1438,7 +1438,7 @@ git commit -m "feat(generation): add prompt builder with 3-way instruction/query
 
 **Interfaces:**
 - Consumes: `app.generation.schema.AnswerDraft`, `app.generation.schema.ResponseMode`, `app.generation.prompt.build_prompt`, `app.retrieval.context.RetrievedChunk`.
-- Produces: `GenerationError(Exception)`, `LLMProvider` (Protocol: `generate_answer(query: str, context: list[RetrievedChunk], mode: ResponseMode) -> AnswerDraft`), `OllamaLLMProvider` (constructor: `base_url: str, model: str, timeout: float = 120.0, client: httpx.Client | None = None`; never reads `settings` internally), `FakeLLMProvider` (test-only, `tests/providers/fakes.py`: constructor `response: AnswerDraft | None = None`; tracks `.calls: list[tuple[str, list[RetrievedChunk], ResponseMode]]`; when `response` is `None`, auto-generates a draft citing every chunk_id in the given context — needed so citation-validity checks in later tasks have something real to validate against, not a static fixture unaware of actual DB-assigned chunk IDs). Consumed by `generation/service.py`, `api/query.py`, and all later tests.
+- Produces: `GenerationError(Exception)` (raised both for structured-output parse/validation failures AND for network-level failures against Ollama — connection refused, timeout, non-2xx response — so a workstation that drops mid-query degrades to the typed "generation failed" response instead of a raw 500; this is the exact live-interview failure mode the tool needs to survive), `LLMProvider` (Protocol: `generate_answer(query: str, context: list[RetrievedChunk], mode: ResponseMode) -> AnswerDraft`), `OllamaLLMProvider` (constructor: `base_url: str, model: str, timeout: float = 120.0, client: httpx.Client | None = None`; never reads `settings` internally), `FakeLLMProvider` (test-only, `tests/providers/fakes.py`: constructor `response: AnswerDraft | None = None`; tracks `.calls: list[tuple[str, list[RetrievedChunk], ResponseMode]]`; when `response` is `None`, auto-generates a draft citing every chunk_id in the given context — needed so citation-validity checks in later tasks have something real to validate against, not a static fixture unaware of actual DB-assigned chunk IDs). Consumed by `generation/service.py`, `api/query.py`, and all later tests.
 
 - [ ] **Step 1: Write the failing tests for `OllamaLLMProvider`**
 
@@ -1544,6 +1544,59 @@ def test_generate_answer_posts_to_chat_endpoint_with_configured_model():
     )
     provider.generate_answer("terraform drift prod", _CONTEXT, ResponseMode.SPEAKABLE)
     # assertion happens inside the handler via model_check
+
+
+def test_generate_answer_raises_generation_error_on_connection_failure():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection refused", request=request)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = OllamaLLMProvider(base_url="http://workstation:11434", model="gpt-oss:20b", client=client)
+
+    with pytest.raises(GenerationError):
+        provider.generate_answer("terraform drift prod", _CONTEXT, ResponseMode.SPEAKABLE)
+
+
+def test_generate_answer_raises_generation_error_on_timeout():
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.TimeoutException("timed out", request=request)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = OllamaLLMProvider(base_url="http://workstation:11434", model="gpt-oss:20b", client=client)
+
+    with pytest.raises(GenerationError):
+        provider.generate_answer("terraform drift prod", _CONTEXT, ResponseMode.SPEAKABLE)
+
+
+def test_generate_answer_raises_generation_error_on_http_error_status():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(500)
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = OllamaLLMProvider(base_url="http://workstation:11434", model="gpt-oss:20b", client=client)
+
+    with pytest.raises(GenerationError):
+        provider.generate_answer("terraform drift prod", _CONTEXT, ResponseMode.SPEAKABLE)
+
+
+def test_generate_answer_retries_once_on_connection_failure_then_succeeds():
+    """Simulates the workstation Ollama dropping mid-call and recovering — the
+    live-interview failure mode this fix exists for."""
+    calls = {"count": 0}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise httpx.ConnectError("connection refused", request=request)
+        return httpx.Response(200, json={"message": {"content": VALID_DRAFT_JSON}})
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    provider = OllamaLLMProvider(base_url="http://workstation:11434", model="gpt-oss:20b", client=client)
+
+    draft = provider.generate_answer("terraform drift prod", _CONTEXT, ResponseMode.SPEAKABLE)
+
+    assert calls["count"] == 2
+    assert draft.confidence == Confidence.HIGH
 ```
 
 - [ ] **Step 2: Run to verify it fails**
@@ -1571,7 +1624,15 @@ from app.retrieval.context import RetrievedChunk
 
 
 class GenerationError(Exception):
-    """Raised when the LLM provider cannot produce a valid AnswerDraft."""
+    """Raised when the LLM provider cannot produce a valid AnswerDraft.
+
+    Covers both structured-output failures (invalid JSON, schema mismatch)
+    and network-level failures against Ollama (connection refused, timeout,
+    non-2xx status) -- a dropped workstation connection mid-query must
+    degrade to this typed error, not propagate as a raw httpx exception into
+    a 500. generation/service.py's answer() catches this uniformly regardless
+    of which underlying cause produced it.
+    """
 
 
 class LLMProvider(Protocol):
@@ -1598,12 +1659,12 @@ class OllamaLLMProvider:
         messages = build_prompt(query, context)
         last_error: Exception | None = None
         for _attempt in range(2):
-            content = self._chat_once(messages)
             try:
+                content = self._chat_once(messages)
                 return AnswerDraft.model_validate_json(content)
-            except (ValidationError, json.JSONDecodeError) as exc:
+            except (ValidationError, json.JSONDecodeError, httpx.HTTPError) as exc:
                 last_error = exc
-        raise GenerationError(f"failed to parse structured LLM output after retry: {last_error}")
+        raise GenerationError(f"failed to get a valid structured answer after retry: {last_error}")
 
     def _chat_once(self, messages: list[dict[str, str]]) -> str:
         response = self._client.post(
@@ -1619,13 +1680,15 @@ class OllamaLLMProvider:
         return response.json()["message"]["content"]
 ```
 
+`httpx.HTTPError` is the common base class for both `httpx.RequestError` (connection/timeout failures, raised directly by the transport) and `httpx.HTTPStatusError` (raised by `raise_for_status()` for a non-2xx response) — one `except` clause catches both, and folding it into the same retry loop as the JSON/validation errors means a transient network blip gets the same one-retry-then-typed-error treatment, not a separate code path.
+
 - [ ] **Step 4: Run to verify it passes**
 
 ```bash
 cd apps/api && .venv/bin/pytest tests/providers/test_llm.py -v
 ```
 
-Expected: all 5 PASS.
+Expected: all 9 PASS.
 
 - [ ] **Step 5: Write the failing test for `FakeLLMProvider`**
 
@@ -1719,7 +1782,7 @@ class FakeLLMProvider:
 cd apps/api && .venv/bin/pytest tests/providers/test_fakes.py tests/providers/test_llm.py -v
 ```
 
-Expected: all 9 PASS.
+Expected: all 13 PASS.
 
 - [ ] **Step 9: Lint and format**
 
@@ -2142,7 +2205,15 @@ EOF
 - Consumes: everything from Tasks 3–10, plus `app.retrieval.search.search` (Phase 2), `app.providers.embeddings.OllamaEmbeddingProvider`, `app.db.models.QueryRun`.
 - Produces: `POST /api/query` — request body `QueryRequest`, response body `QueryResponse`, per `docs/architecture/05-api-surface.md`. Writes one `QueryRun` row per request (skipped when `settings.query_logging` is `False`).
 
-- [ ] **Step 1: Write the failing tests**
+- [ ] **Step 1: Read `QueryRun`'s real field names before writing anything against them**
+
+```bash
+sed -n '87,103p' apps/api/app/db/models.py
+```
+
+Confirm the exact field names on the `QueryRun` model (`__tablename__ = "query_runs"`) before Step 3 writes `db.add(QueryRun(...))` — same discipline Task 2 applied by reading `test_config.py`'s existing conventions before adding to it. As of this plan being written, the confirmed fields are: `id`, `created_at`, `raw_query`, `normalized_query`, `response_mode`, `retrieval_latency_ms`, `rerank_latency_ms`, `generation_latency_ms`, `total_latency_ms`, `retrieved_chunk_ids`, `retrieval_scores`, `selected_source_ids`, `provider_name`, `model_name` — Step 3's code below uses exactly this set (skipping `rerank_latency_ms`, which Phase 3 has nothing to populate). If the file has drifted since this plan was written, use the real names you just read, not the ones printed here.
+
+- [ ] **Step 2: Write the failing tests**
 
 Create `apps/api/tests/test_query_api.py`:
 
@@ -2298,7 +2369,7 @@ def test_query_requires_query_field(db_session):
         app.dependency_overrides.clear()
 ```
 
-- [ ] **Step 2: Run to verify it fails**
+- [ ] **Step 3: Run to verify it fails**
 
 ```bash
 cd apps/api && .venv/bin/pytest tests/test_query_api.py -v
@@ -2306,7 +2377,7 @@ cd apps/api && .venv/bin/pytest tests/test_query_api.py -v
 
 Expected: FAIL — `404 Not Found` (route doesn't exist yet) or `ModuleNotFoundError: No module named 'app.api.query'`.
 
-- [ ] **Step 3: Implement `api/query.py`**
+- [ ] **Step 4: Implement `api/query.py`**
 
 ```python
 from __future__ import annotations
@@ -2394,7 +2465,7 @@ def query(request: QueryRequest, db: Session = Depends(get_db)) -> QueryResponse
     return response
 ```
 
-- [ ] **Step 4: Wire the router into `main.py`**
+- [ ] **Step 5: Wire the router into `main.py`**
 
 In `apps/api/app/main.py`, add the import and registration:
 
@@ -2410,7 +2481,7 @@ app.include_router(query_router)
 
 (alongside the existing `health_router`, `index_status_router`, `retrieval_debug_router` registrations).
 
-- [ ] **Step 5: Run to verify it passes**
+- [ ] **Step 6: Run to verify it passes**
 
 ```bash
 cd apps/api && .venv/bin/pytest tests/test_query_api.py -v
@@ -2418,7 +2489,7 @@ cd apps/api && .venv/bin/pytest tests/test_query_api.py -v
 
 Expected: all 6 PASS.
 
-- [ ] **Step 6: Run the full suite**
+- [ ] **Step 7: Run the full suite**
 
 ```bash
 cd apps/api && .venv/bin/pytest -v
@@ -2426,13 +2497,13 @@ cd apps/api && .venv/bin/pytest -v
 
 Expected: all tests pass, no regressions.
 
-- [ ] **Step 7: Lint and format**
+- [ ] **Step 8: Lint and format**
 
 ```bash
 cd apps/api && .venv/bin/ruff format . && .venv/bin/ruff check .
 ```
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
 git add apps/api/app/api/query.py apps/api/app/main.py apps/api/tests/test_query_api.py
