@@ -94,16 +94,29 @@ mode == "speakable"?
          |
          v
     retrieval-quality pre-check
-         |    tier 1 (deterministic, no tuning): zero fused results -> abstain. Always correct;
-         |      this is what actually carries the exit condition's guarantee.
+         |    tier 1 (deterministic, no tuning): zero fused results -> abstain. CORRECTION found
+         |      during implementation planning: retrieval/vector.py's pgvector query (Phase 2,
+         |      already merged) is `ORDER BY cosine_distance LIMIT 20` with no distance cutoff --
+         |      it always returns its top-20 nearest neighbors no matter how dissimilar they are.
+         |      So fused_results is only truly empty for a degenerate empty/unindexed vault, NOT
+         |      for the realistic "vault has content, just nothing about this topic" case the exit
+         |      condition actually describes. Tier 1 stays as a real (if narrow) guarantee; it does
+         |      NOT back up tier 2 for realistic queries the way earlier phrasing here implied.
+         |      Deliberately not touching Phase 2's exit-condition-proven retrieval code in this
+         |      generation-focused phase to add a distance cutoff -- if measurement in Phase 5
+         |      later shows one is needed, that's where it belongs.
          |    tier 2 (measured heuristic): top fused RRF score below `settings.abstention_score_
-         |      threshold` -> abstain. Value is measured during THIS phase's build, not guessed:
-         |      run eval fixtures (incl. new `expected_abstain` cases) through retrieval, inspect
-         |      the score distribution, pick the value that separates "should answer" from "should
-         |      abstain" -- same discipline Recall@5=1.0 got in Phase 2. Primary calibration against
-         |      sample-vault (CI-gated); private fixtures as a secondary real-world sanity check.
-         |      Revisit if sample-vault's 7-note fixture set proves too small to trust once private
-         |      data is available.
+         |      threshold` -> abstain. This is the mechanism that actually carries the exit
+         |      condition's guarantee for realistic no-evidence queries. Value is measured during
+         |      THIS phase's build, not guessed: run eval fixtures (incl. new `expected_abstain`
+         |      cases) through retrieval, inspect the score distribution, pick the value that
+         |      separates "should answer" from "should abstain" -- same discipline Recall@5=1.0 got
+         |      in Phase 2. Primary calibration against sample-vault (CI-gated); private fixtures as
+         |      a secondary real-world sanity check. Revisit if sample-vault's 7-note fixture set
+         |      proves too small to trust once private data is available. Bias the choice toward
+         |      over-abstaining at the boundary rather than under-abstaining -- a false abstention
+         |      costs a rerun; a false confident answer is the exact failure mode this whole phase
+         |      exists to prevent.
          |
          +-- FAILS --> deterministic abstention AnswerDraft, skip LLM entirely, confidence=LOW
          |
@@ -197,11 +210,11 @@ New fixture field: `expected_abstain: bool` — cases where the sample/private v
 
 Build-order dependency: `expected_abstain` fixtures must exist and run through `retrieval.search()` **before** `abstention_score_threshold` is picked — the threshold is calibrated *from* the resulting score distribution, not decided ahead of it. This makes the "measure the threshold" step its own implementation-plan task, sequenced after the fixture task and before the `generation.service` pre-check task, with the measured value and methodology written into the plan doc the same way Phase 2 recorded Recall@5=1.0.
 
-Automated generation metrics (extending `app/evaluation/metrics.py`):
-- Citation validity — every `used_source_chunk_ids` in the response resolves to a path in the fixture's `expected_notes`.
-- Abstention correctness — `expected_abstain` fixtures produce `confidence=LOW` with a limitation stated, and did not call the LLM (checked via `FakeLLMProvider` call count in the test, not just output shape).
-- Answer length — `say_this` sentence count within the 2-5 sentence guidance from `04-generation.md`.
-- Generation latency p50/p95.
+**The threshold measurement itself must use real embeddings, not `FakeEmbeddingProvider`.** `FakeEmbeddingProvider`'s vectors are hash-seeded noise, not semantically meaningful — for an off-topic `expected_abstain` query, full-text search correctly returns zero matches (no lexical overlap), so the fused score is driven entirely by the vector component, and a threshold calibrated against noise wouldn't mean anything. The measurement run uses real `nomic-embed-text` against indexed `sample-vault` content, same as Phase 2's real-embedding verification pass.
+
+Automated generation metrics (extending `app/evaluation/metrics.py`), split by what's actually CI-safe:
+- **CI-safe (deterministic, no live Ollama):** citation validity — every `used_source_chunk_ids` in the response resolves to a path in the fixture's `expected_notes`; pre-check logic itself, unit-tested directly against synthetic `RetrievedChunk` score values (not run through fake-embedding retrieval, for the reason above) — confirms `generation.service.answer()` abstains below threshold and doesn't call the LLM provider when it does; answer length (`say_this` sentence count within the 2-5 sentence guidance from `04-generation.md`); generation latency p50/p95 against `FakeLLMProvider`.
+- **Real-embedding-dependent, NOT CI-gated (manual/optional, same treatment as the real-model verification pass):** running `expected_abstain` fixtures end-to-end through real retrieval + real generation to confirm the calibrated threshold actually discriminates on real data, not just in the unit tests.
 
 Manual spot-check (not automated): speakability rating, concept-coverage nuance — same treatment retrieval eval gave "eyeballing" before Phase 2's harness existed.
 
