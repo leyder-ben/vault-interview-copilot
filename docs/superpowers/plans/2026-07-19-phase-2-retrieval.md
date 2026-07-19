@@ -1915,6 +1915,16 @@ real value measured against sample-vault + retrofitted interviewer_phrasing
 fixtures, not an invented target."
 ```
 
+**Post-Task-12 real-embedding verification (2026-07-19):** Task 12's automated exit-condition test uses `FakeEmbeddingProvider` (deterministic hash vectors, no live Ollama needed for CI) — the final whole-branch review correctly flagged that this means the CI gate's `Recall@5 = 1.0` is carried entirely by the full-text channel, with the vector arm contributing only noise, so the "hybrid retrieval" design isn't validated by the automated gate alone. Ran the manual verification this implies: indexed `sample-vault` for real (`python -m app.ingestion.cli`, real `nomic-embed-text` embeddings) against the persistent dev Postgres, then `python -m app.evaluation.cli --dataset sample-vault`:
+
+```
+Shorthand: Recall@5: 100%  Recall@10: 100%  MRR: 0.89  Exact match: 83%
+Natural phrasing: Recall@5: 100%  Recall@10: 100%  MRR: 0.83  Exact match: 67%
+Retrieval latency: p50 39ms, p95 55ms
+```
+
+Both query forms hit 100% Recall@5 with real semantic vector search actually contributing (not fake noise) — the hybrid pipeline's semantic arm is genuinely validated, not just asserted. This is a manual, point-in-time measurement (mirrors Phase 1's optional real-Ollama CLI verification pattern) — not re-run automatically in CI.
+
 ---
 
 ## Summary
