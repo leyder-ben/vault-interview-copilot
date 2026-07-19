@@ -1,4 +1,12 @@
-from app.evaluation.metrics import exact_match, hit_at_k, percentile, reciprocal_rank
+from app.evaluation.metrics import (
+    answer_length_ok,
+    answer_length_sentences,
+    citation_validity,
+    exact_match,
+    hit_at_k,
+    percentile,
+    reciprocal_rank,
+)
 from app.retrieval.fusion import FusedResult
 
 
@@ -62,3 +70,46 @@ def test_percentile_p95_of_sorted_values():
     # index = 0.95 * 99 = 94.05, interpolates between sorted_values[94]=95
     # and sorted_values[95]=96 -> 95 + (96-95)*0.05 = 95.05, not a round 95.0.
     assert percentile(list(range(1, 101)), 95) == 95.05
+
+
+def test_citation_validity_true_when_all_cited_paths_are_expected():
+    assert (
+        citation_validity(["Terraform.md"], ["Terraform.md", "Other.md"], expected_abstain=False)
+        is True
+    )
+
+
+def test_citation_validity_false_when_a_cited_path_is_not_expected():
+    assert citation_validity(["Wrong.md"], ["Terraform.md"], expected_abstain=False) is False
+
+
+def test_citation_validity_false_when_no_citations_for_non_abstain_fixture():
+    assert citation_validity([], ["Terraform.md"], expected_abstain=False) is False
+
+
+def test_citation_validity_true_when_abstain_fixture_has_no_citations():
+    assert citation_validity([], [], expected_abstain=True) is True
+
+
+def test_citation_validity_false_when_abstain_fixture_has_a_citation():
+    assert citation_validity(["Terraform.md"], [], expected_abstain=True) is False
+
+
+def test_answer_length_sentences_counts_correctly():
+    assert answer_length_sentences("First sentence. Second sentence! Third?") == 3
+
+
+def test_answer_length_sentences_ignores_empty_segments():
+    assert answer_length_sentences("One sentence.") == 1
+
+
+def test_answer_length_ok_true_within_two_to_five_sentences():
+    assert answer_length_ok("One. Two. Three.") is True
+
+
+def test_answer_length_ok_false_for_single_sentence():
+    assert answer_length_ok("Just one.") is False
+
+
+def test_answer_length_ok_false_for_six_sentences():
+    assert answer_length_ok("One. Two. Three. Four. Five. Six.") is False
