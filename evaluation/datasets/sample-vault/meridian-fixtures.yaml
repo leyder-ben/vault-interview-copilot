@@ -8,6 +8,7 @@
 # rather than a 1:1 mirror of the private set — sample-vault only has 7
 # indexable notes, so there isn't real coverage to pad this out further
 # without inventing content that doesn't back it.
+# One additional fixture (`meridian-no-evidence-database-pooling-007`) is deliberately about a topic sample-vault's 7 notes never cover, used to calibrate and test the abstention pre-check (Phase 3) — not a retrieval-recall fixture, excluded from Recall@5/MRR aggregation by `expected_abstain: true`.
 
 - id: meridian-terraform-state-drift-001
   query: "terraform state drift"
@@ -77,3 +78,11 @@
   expected_concepts:
     - open question about whether Cluster Autoscaler config lives in the Terraform node group definition
   expected_personal_project: []
+
+- id: meridian-no-evidence-database-pooling-007
+  query: "database connection pooling"
+  interviewer_phrasing: "How do you handle connection pooling for your database layer?"
+  expected_notes: []
+  expected_concepts: []
+  expected_personal_project: []
+  expected_abstain: true
