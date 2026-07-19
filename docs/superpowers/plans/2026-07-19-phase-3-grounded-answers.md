@@ -772,18 +772,29 @@ def test_select_always_includes_first_chunk_even_if_it_exceeds_budget(db_session
 
 
 def test_select_skips_later_chunks_that_would_exceed_budget(db_session):
-    # "short" is exactly 1 token under cl100k_base (verified: tiktoken.get_encoding
-    # ("cl100k_base").encode("short") == [8846]). budget_tokens=1 means the forced
-    # first chunk (1 token) exactly fills the budget, so every subsequent 1-token
-    # chunk pushes the running total over it (1+1=2 > 1) and gets skipped.
-    small_content = "short"
-    ids = [_make_note_and_chunk(db_session, f"S{i}.md", "H", small_content) for i in range(20)]
+    # "short" is 1 token, "word " * 20 is 21 tokens (verified via tiktoken
+    # cl100k_base). budget_tokens=5: chunk0 ("short", 1 token) is forced in
+    # regardless of size (total=1); chunk1 (21 tokens) blows the budget
+    # (1+21=22 > 5) and is skipped via `continue`, not `break` -- proven by
+    # chunk2 ("short", 1 token) still being considered afterward and fitting
+    # (1+1=2 <= 5). A `break`-based implementation would stop at chunk1 and
+    # never reach chunk2, producing [small_id] instead of [small_id,
+    # later_small_id] -- this is what makes the test actually discriminate
+    # skip-vs-stop, rather than just asserting a length that both a correct
+    # and a buggy implementation would produce identically.
+    small_id = _make_note_and_chunk(db_session, "Small0.md", "H", "short")
+    big_id = _make_note_and_chunk(db_session, "Big1.md", "H", "word " * 20)
+    later_small_id = _make_note_and_chunk(db_session, "Small2.md", "H", "short")
     db_session.commit()
-    fused = [_fused(cid, f"S{i}.md", "H", i + 1, 0.05 - i * 0.001) for i, cid in enumerate(ids)]
+    fused = [
+        _fused(small_id, "Small0.md", "H", 1, 0.05),
+        _fused(big_id, "Big1.md", "H", 2, 0.04),
+        _fused(later_small_id, "Small2.md", "H", 3, 0.03),
+    ]
 
-    result = select(fused, db_session, max_sources=20, budget_tokens=1)
+    result = select(fused, db_session, max_sources=20, budget_tokens=5)
 
-    assert len(result) == 1
+    assert [c.chunk_id for c in result] == [small_id, later_small_id]
 
 
 def test_select_empty_fused_results_returns_empty(db_session):
