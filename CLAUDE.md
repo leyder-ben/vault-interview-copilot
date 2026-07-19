@@ -19,6 +19,10 @@ Full reasoning: `docs/architecture/11-locked-decisions.md`. Short version:
 - **Repo name:** `vault-interview-copilot` — already set, don't rename.
 - **Query logging:** on by default (`query_runs` table), with an easy purge path. Not a privacy problem at this stage — single-user, local-only tool.
 
+## Decision authority
+
+**Phase-completion and exit-condition calls are Ben's to make, not inferred.** When a phase's exit condition is ambiguous, partially met, or has a disclosed gap, present the finding and the options — don't decide "met" or "not met" and write that conclusion into `10-delivery-plan.md` or this file unilaterally, even when running autonomously and even when the reasoning is sound. This applies specifically to marking an exit condition met, advancing "current phase," and any other edit that changes what the project's source-of-truth docs claim is *done*. Document findings, gaps, and candidate follow-ups freely — that's expected. Deciding the finding is good enough to ship on is not.
+
 ## Architecture principles (non-negotiable unless you have a measured reason)
 
 1. **Modular monolith, not microservices.** One FastAPI app, clean internal module boundaries (`ingestion/`, `retrieval/`, `generation/`, `providers/`, `db/`). No service-to-service network calls. See `docs/adr/0001-modular-monolith.md`.
