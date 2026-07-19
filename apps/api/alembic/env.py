@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
@@ -8,7 +9,10 @@ from app.db import models  # noqa: F401  registers tables on Base.metadata
 from app.db.base import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# TEST_DATABASE_URL, when set (by tests/conftest.py), points migrations at an
+# isolated test database instead of settings.database_url -- see
+# docs/architecture/09-testing.md for why this isolation exists.
+config.set_main_option("sqlalchemy.url", os.environ.get("TEST_DATABASE_URL", settings.database_url))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
