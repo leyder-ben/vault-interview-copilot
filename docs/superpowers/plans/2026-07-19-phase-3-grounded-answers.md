@@ -1542,8 +1542,11 @@ def test_generate_answer_posts_to_chat_endpoint_with_configured_model():
     provider = OllamaLLMProvider(
         base_url="http://workstation:11434", model="custom-model:latest", client=client
     )
-    provider.generate_answer("terraform drift prod", _CONTEXT, ResponseMode.SPEAKABLE)
-    # assertion happens inside the handler via model_check
+    draft = provider.generate_answer("terraform drift prod", _CONTEXT, ResponseMode.SPEAKABLE)
+    # The handler asserts the request body's "model" field matches model_check;
+    # this asserts the call actually completed and returned a valid draft, so
+    # the test fails loudly (not silently) if the handler is ever bypassed.
+    assert draft.confidence == Confidence.HIGH
 
 
 def test_generate_answer_raises_generation_error_on_connection_failure():
