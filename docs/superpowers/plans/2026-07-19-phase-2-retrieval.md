@@ -1750,7 +1750,7 @@ git commit -m "feat(evaluation): add python -m app.evaluation.cli"
 
 **Why this is a task, not optional polish:** per the design spec, automated/CI runs only ever use `sample-vault` (the private set requires the real vault, run manually). Without `interviewer_phrasing` on these 6 fixtures, the Phase 2 exit-condition proof would never test whether normalization actually helps — it would only prove retrieval works on input that barely needed normalizing.
 
-- [ ] **Step 1: Add `interviewer_phrasing` to each of the 6 fixtures**
+- [x] **Step 1: Add `interviewer_phrasing` to each of the 6 fixtures**
 
 Modify `evaluation/datasets/sample-vault/meridian-fixtures.yaml`. Insert an `interviewer_phrasing` line immediately after each fixture's `query` line, exactly as shown (six additions, one per fixture, nothing else in the file changes):
 
@@ -1784,7 +1784,7 @@ After `query: "node scaling cluster autoscaler config location"` (fixture `merid
   interviewer_phrasing: "Where does the actual configuration for your Cluster Autoscaler live?"
 ```
 
-- [ ] **Step 2: Validate the YAML still parses and every fixture has both fields**
+- [x] **Step 2: Validate the YAML still parses and every fixture has both fields**
 
 Run:
 ```bash
@@ -1801,7 +1801,7 @@ print('OK:', len(data), 'fixtures, all with interviewer_phrasing')
 ```
 Expected: `OK: 6 fixtures, all with interviewer_phrasing`
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add evaluation/datasets/sample-vault/meridian-fixtures.yaml
