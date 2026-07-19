@@ -62,6 +62,18 @@ class OllamaLLMProvider:
                 "messages": messages,
                 "format": AnswerDraft.model_json_schema(),
                 "stream": False,
+                # gpt-oss:20b is a "thinking"-capable model; with no think
+                # value set, Ollama defaults it to unconstrained/high
+                # reasoning effort, which measured ~10.4s median / 17-22s
+                # tail per call with no benefit to this app (the hidden
+                # reasoning tokens in message.thinking are never read).
+                # think="low" cut that to 2-5s across 30+ real reps with no
+                # loss of structured-output validity. think=false was tested
+                # and rejected -- it breaks structured output entirely
+                # (empty content). See docs/architecture/11-locked-
+                # decisions.md and docs/superpowers/plans/2026-07-19-phase-
+                # 3-grounded-answers.md for the full measurement.
+                "think": "low",
             },
         )
         response.raise_for_status()
