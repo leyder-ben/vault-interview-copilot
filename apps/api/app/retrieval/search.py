@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from app.ingestion.embeddings import EmbeddingProvider
+from app.providers.embeddings import EmbeddingProvider
 from app.retrieval.fulltext import ScoredChunk, search_fulltext
 from app.retrieval.fusion import FusedResult, reciprocal_rank_fusion
 from app.retrieval.normalize import normalize_query

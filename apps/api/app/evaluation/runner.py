@@ -6,7 +6,7 @@ import yaml
 from sqlalchemy.orm import Session
 
 from app.evaluation.metrics import exact_match, hit_at_k, percentile, reciprocal_rank
-from app.ingestion.embeddings import EmbeddingProvider
+from app.providers.embeddings import EmbeddingProvider
 from app.retrieval.search import search
 
 

@@ -5,8 +5,8 @@ import sys
 
 from app.core.config import settings
 from app.db.base import SessionLocal
-from app.ingestion.embeddings import OllamaEmbeddingProvider
 from app.ingestion.indexer import run_index
+from app.providers.embeddings import OllamaEmbeddingProvider
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
