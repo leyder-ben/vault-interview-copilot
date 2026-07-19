@@ -772,12 +772,16 @@ def test_select_always_includes_first_chunk_even_if_it_exceeds_budget(db_session
 
 
 def test_select_skips_later_chunks_that_would_exceed_budget(db_session):
+    # "short" is exactly 1 token under cl100k_base (verified: tiktoken.get_encoding
+    # ("cl100k_base").encode("short") == [8846]). budget_tokens=1 means the forced
+    # first chunk (1 token) exactly fills the budget, so every subsequent 1-token
+    # chunk pushes the running total over it (1+1=2 > 1) and gets skipped.
     small_content = "short"
     ids = [_make_note_and_chunk(db_session, f"S{i}.md", "H", small_content) for i in range(20)]
     db_session.commit()
     fused = [_fused(cid, f"S{i}.md", "H", i + 1, 0.05 - i * 0.001) for i, cid in enumerate(ids)]
 
-    result = select(fused, db_session, max_sources=20, budget_tokens=3)
+    result = select(fused, db_session, max_sources=20, budget_tokens=1)
 
     assert len(result) == 1
 
