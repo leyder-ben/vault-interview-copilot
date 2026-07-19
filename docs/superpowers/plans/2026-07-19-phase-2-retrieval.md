@@ -1571,7 +1571,7 @@ git commit -m "feat(evaluation): add fixture loader and eval runner, scoring bot
 - Consumes: `load_fixtures`, `run_eval` (Task 9), `settings` (`app.core.config`), `SessionLocal` (`app.db.base`), `OllamaEmbeddingProvider` (`app.ingestion.embeddings`).
 - Produces: `main(argv: list[str] | None = None) -> None`, runnable as `python -m app.evaluation.cli --dataset {sample-vault|private}`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/evaluation/test_cli.py`:
 
@@ -1652,12 +1652,12 @@ def test_main_runs_eval_and_prints_both_forms(tmp_path, db_session, monkeypatch,
     assert "Recall@5" in captured.out
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/evaluation/test_cli.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.evaluation.cli'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/evaluation/cli.py`:
 
@@ -1725,12 +1725,12 @@ if __name__ == "__main__":
 
 `DATASET_PATHS` uses relative paths from `apps/api/` (matching where `python -m app.evaluation.cli` is run from, per the established Phase 1 CLI convention) — resolve to repo-root-relative `evaluation/datasets/...`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/evaluation/test_cli.py -v`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/evaluation/cli.py apps/api/tests/evaluation/test_cli.py
