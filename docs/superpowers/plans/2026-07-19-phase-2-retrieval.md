@@ -1152,7 +1152,7 @@ git commit -m "feat(api): add GET /api/debug/retrieve, a no-LLM retrieval debug 
 
 These are pure functions — no database.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/app/evaluation/__init__.py` (empty) and `apps/api/tests/evaluation/__init__.py` (empty).
 
@@ -1225,12 +1225,12 @@ def test_percentile_p95_of_sorted_values():
     assert percentile(list(range(1, 101)), 95) == 95.05
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/evaluation/test_metrics.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.evaluation.metrics'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/evaluation/metrics.py`:
 
@@ -1273,12 +1273,12 @@ def percentile(values: list[float], p: float) -> float:
     return sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * fraction
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/evaluation/test_metrics.py -v`
 Expected: PASS (10 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/evaluation/__init__.py apps/api/app/evaluation/metrics.py apps/api/tests/evaluation/__init__.py apps/api/tests/evaluation/test_metrics.py
