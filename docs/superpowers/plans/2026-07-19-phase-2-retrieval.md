@@ -966,7 +966,7 @@ git commit -m "feat(retrieval): add search() orchestrating normalize -> embed ->
 - Consumes: `search` (Task 6), `get_db` (`app.api.deps`, already exists), `settings.ollama_workstation_url`/`settings.embedding_model` (`app.core.config`, already exist), `OllamaEmbeddingProvider` (`app.ingestion.embeddings`, already exists).
 - Produces: `GET /api/debug/retrieve?q=...` route.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/test_retrieval_debug.py`:
 
@@ -1039,12 +1039,12 @@ def test_debug_retrieve_requires_q_param(db_session):
         app.dependency_overrides.clear()
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/test_retrieval_debug.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.api.retrieval_debug'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/api/retrieval_debug.py`:
 
@@ -1119,17 +1119,17 @@ app.include_router(index_status_router)
 app.include_router(retrieval_debug_router)
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/test_retrieval_debug.py -v`
 Expected: PASS (2 tests)
 
-- [ ] **Step 5: Run the full test suite to check for regressions**
+- [x] **Step 5: Run the full test suite to check for regressions**
 
 Run: `cd apps/api && pytest -v`
 Expected: PASS (all tests, old and new)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/api/app/api/retrieval_debug.py apps/api/app/main.py apps/api/tests/test_retrieval_debug.py
