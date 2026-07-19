@@ -1297,7 +1297,7 @@ git commit -m "feat(evaluation): add recall/MRR/exact-match/percentile metrics"
 - Consumes: `search` (Task 6), `hit_at_k`/`reciprocal_rank`/`exact_match`/`percentile` (Task 8), `EmbeddingProvider` (`app.ingestion.embeddings`).
 - Produces: `Fixture(id: str, query: str, interviewer_phrasing: str | None, expected_notes: list[str])`, `load_fixtures(path: str) -> list[Fixture]`, `FixtureResult(fixture_id: str, query_form: str, query_text: str, hit_at_5: bool, hit_at_10: bool, reciprocal_rank: float, exact_match: bool, latency_ms: float)`, `EvalGroupMetrics(recall_at_5: float, recall_at_10: float, mrr: float, exact_match_rate: float, latency_p50_ms: float, latency_p95_ms: float)`, `EvalReport(shorthand: EvalGroupMetrics, natural: EvalGroupMetrics, results: list[FixtureResult])`, `run_eval(session: Session, embedding_provider: EmbeddingProvider, fixtures: list[Fixture]) -> EvalReport`. Consumed by Task 10 (CLI) and Task 12 (exit-condition test).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/evaluation/test_runner.py`:
 
@@ -1426,12 +1426,12 @@ def test_run_eval_skips_natural_form_when_absent(db_session, tmp_path):
     assert report.results[0].query_form == "shorthand"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/evaluation/test_runner.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.evaluation.runner'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/evaluation/runner.py`:
 
@@ -1547,12 +1547,12 @@ def run_eval(session: Session, embedding_provider: EmbeddingProvider, fixtures: 
     )
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/evaluation/test_runner.py -v`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/evaluation/runner.py apps/api/tests/evaluation/test_runner.py
