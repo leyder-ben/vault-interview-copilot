@@ -2805,6 +2805,20 @@ Per the Decision authority section in `CLAUDE.md`: this is now real, tested, shi
 
 ---
 
+## `think='low'` adopted as the shipped default, re-verified end-to-end (2026-07-19)
+
+`think='low'` moved from a diagnostic parameter (used only in scratchpad measurement scripts) to the real default: `providers/llm.py`'s `_chat_once` now sets `"think": "low"` unconditionally on every Ollama `/api/chat` call, no settings toggle. Documented as a locked decision in `docs/architecture/11-locked-decisions.md` (new "Generation reasoning effort" section), including the explicit caveat that answer-quality was spot-checked, not rigorously scored, unlike the latency numbers or the other measured thresholds.
+
+**Task 13's original two queries were re-run against the live, running API** (real Postgres, real `nomic-embed-text`, real `gpt-oss:20b` via Ollama at `localhost:11434`, `sample-vault` already indexed) — this confirms the *shipped* code path behaves like the diagnostic scripts did, not just that the parameter works in isolation:
+
+- **With-evidence query** (`"terraform state drift"`): `total` wall time **2678ms** (`generation`: 2624ms), squarely inside the measured 2-5s range from today's investigation — previously, before this change, the same query cost ~10-18s per the Task 13/broader-sample work earlier in this document. `say_this` was well-grounded, closely matching `Terraform-Fundamentals.md`'s actual drift-management content (scheduled `terraform plan`, non-empty diff as signal, single source of truth). `confidence: "high"`, but `sources` came back empty — this is the already-documented citation-population-omission gap ("Citation-population reliability" sections above), not a new problem and not something this latency change was meant to address; recorded here for completeness, not as a new finding.
+- **No-evidence query** (`"database connection pooling"`): correct abstention preserved — `confidence: "low"`, `limitations` stated the vault lacks evidence, `sources` empty, `generation` timing **0.02ms**, confirming the retrieval-quality pre-check still fires before any LLM call and is unaffected by the `think` setting (as expected — abstention is decided before generation is ever invoked). Total wall time 59ms.
+- API server was started fresh for this verification and stopped cleanly afterward (confirmed port 8000 released, no leftover uvicorn process).
+
+Both queries behaved exactly as the diagnostic scripts predicted. This re-verification is a **performance fix confirmation, layered on top of** the citation-population and citation-relevance findings already recorded in this document — it does not resolve either of them, and `docs/architecture/10-delivery-plan.md`'s Phase 3 exit-condition status remains untouched, per the Decision authority section in `CLAUDE.md`.
+
+---
+
 ## Summary
 
 Thirteen tasks, in dependency order: move `EmbeddingProvider` into `providers/` → model/config corrections → structured-output schema → source resolution → context selection → `expected_abstain` fixture → measure the abstention threshold (real embeddings) → prompt builder → Ollama LLM adapter + fake → generation orchestration service → `POST /api/query` + telemetry → generation eval metrics → real end-to-end verification. Each task is independently testable and commits on its own. Phase 3's exit condition (`docs/architecture/10-delivery-plan.md`) is satisfied by Tasks 10-11's backend-enforced citation cross-check and retrieval-quality-gated abstention, proven against real data in Task 13.
