@@ -2657,7 +2657,7 @@ git commit -m "feat(evaluation): add citation validity and answer length metrics
 
 **This task is not run in CI and does not gate merging on its own** — Tasks 1–12's test suite is what CI enforces. This task is where the exit condition (`docs/architecture/10-delivery-plan.md`: "the API returns concise, sourced answers without fabricated file citations... confirm the model abstains correctly rather than filling the gap") gets proven against the real pipeline: real `nomic-embed-text` embeddings, real `gpt-oss:20b` generation, real Postgres.
 
-- [ ] **Step 1: Confirm sample-vault is indexed with real embeddings**
+- [x] **Step 1: Confirm sample-vault is indexed with real embeddings**
 
 ```bash
 cd apps/api && .venv/bin/python -m app.ingestion.cli --vault-path ../../sample-vault
@@ -2665,7 +2665,7 @@ cd apps/api && .venv/bin/python -m app.ingestion.cli --vault-path ../../sample-v
 
 Expected: `status=success` (or a no-op second run, per Phase 1's incremental guarantee).
 
-- [ ] **Step 2: Run a real query with evidence, via the running API**
+- [x] **Step 2: Run a real query with evidence, via the running API**
 
 Start the API (if not already running):
 
@@ -2687,7 +2687,7 @@ Verify by hand:
 - `confidence` is `"high"` or `"medium"`.
 - No source path or heading in the response is something that doesn't actually exist in `sample-vault/` — spot-check by opening the cited file.
 
-- [ ] **Step 3: Run the no-evidence query and confirm real abstention**
+- [x] **Step 3: Run the no-evidence query and confirm real abstention**
 
 ```bash
 curl -s -X POST http://localhost:8000/api/query \
@@ -2702,7 +2702,7 @@ Verify by hand:
 
 If this does **not** abstain correctly (i.e., it fabricates a confident-sounding answer), that's a genuine finding, not something to route around: it means Task 7's measured `abstention_score_threshold` doesn't hold up against the real query even though it was calibrated from real embeddings — go back to Task 7, re-run the measurement script with this query included as an explicit data point, and re-pick the threshold. Do not adjust the prompt to paper over a retrieval-quality-signal miss; the pre-check firing (or not) is a retrieval-score question, not a prompt-wording question.
 
-- [ ] **Step 4: Run a personal-project-evidence query and confirm `personal_examples` populates**
+- [x] **Step 4: Run a personal-project-evidence query and confirm `personal_examples` populates**
 
 ```bash
 curl -s -X POST http://localhost:8000/api/query \
@@ -2714,16 +2714,25 @@ Verify `answer.personal_examples` is non-empty and references the Meridian proje
 
 If `personal_examples` comes back empty despite clearly-relevant context, this is allowed one prompt-wording iteration: adjust `SYSTEM_INSTRUCTIONS` in `generation/prompt.py` to be more explicit, re-run this step once. Don't iterate further — record whichever result comes from the (at most) one fix pass, same discipline as Phase 2's Recall@5 process.
 
-- [ ] **Step 5: Record the verification result**
+- [x] **Step 5: Record the verification result**
 
 Append a short section to the end of this plan file (`docs/superpowers/plans/2026-07-19-phase-3-grounded-answers.md`), after Task 13, following Phase 2's `docs/superpowers/plans/2026-07-19-phase-2-retrieval.md` closing-summary style: what was measured, what passed, any prompt iteration taken in Step 4, and the final `abstention_score_threshold` value with its measurement story. This is what a future reader (or Ben, months later) checks instead of re-running the manual pass themselves.
 
-- [ ] **Step 6: Commit the plan-file update**
+- [x] **Step 6: Commit the plan-file update**
 
 ```bash
 git add docs/superpowers/plans/2026-07-19-phase-3-grounded-answers.md
 git commit -m "docs: record Phase 3 real end-to-end verification result"
 ```
+
+**Post-Task-13 real end-to-end verification (2026-07-19):** Ran the exit-condition proof against the live pipeline — real Postgres (`copilot-postgres`), real `nomic-embed-text` embeddings, real `gpt-oss:20b` generation via Ollama at `localhost:11434`, `sample-vault/` indexed (`python -m app.ingestion.cli`, no-op second run confirming Phase 1's incremental guarantee still holds), and `uvicorn app.main:app` backgrounded and driven with `curl` against `POST /api/query`.
+
+- **With-evidence query** (`"terraform state drift"`): PASS. `say_this` was 2 sentences, `sources` included `02-Technical-Reference/Terraform/Terraform-Fundamentals.md` (heading `Terraform Fundamentals > State Management > Drift Management`, lines 15-30) alongside `Meridian-Tool-Stack-Articulation.md`, `confidence` was `"high"`, and both cited paths/headings were confirmed to exist verbatim in `sample-vault/` at the cited line ranges. `personal_examples` also populated correctly here (Meridian EC2 drift example, chunk_ids `[15, 3]`).
+- **No-evidence query** (`"database connection pooling"`): PASS. `confidence` was `"low"`, `limitations` correctly stated the vault lacks evidence, `sources` was empty, and `timing_ms.generation` was ~0ms — confirming the retrieval-quality-gated abstention pre-check (Task 7's `abstention_score_threshold`) fired *before* any LLM call, exactly as designed. No threshold re-measurement was needed; the real query behaved consistently with Task 7's calibration.
+- **Personal-project-evidence query** (`"why gitops over jenkins"`): FAIL, after the one allowed prompt-wording iteration. First run: `personal_examples` and `sources` both came back empty despite `say_this` clearly paraphrasing Meridian-specific GitOps-vs-Jenkins content from the retrieved context (`Meridian-Tool-Stack-Articulation.md`'s "Why GitOps Over a Long-Running CI Server" section and `CICD-Pipeline-Walkthrough.md`). Applied the one allowed fix pass: strengthened `SYSTEM_INSTRUCTIONS` in `apps/api/app/generation/prompt.py` to state explicitly that `used_source_chunk_ids` is required whenever context informs the answer, and to require an explicit pre-finalization check for a named personal project in context. Restarted the API to pick up the change and re-ran the same query once: `say_this` and `supporting_points` improved (added concrete Meridian pipeline detail, with inline prose references like "(Chunk 4)"/"(Chunk 7)"), but `personal_examples` and `used_source_chunk_ids` were still empty, so `sources` stayed empty. Per the brief's one-fix-pass discipline, this result is recorded as-is rather than iterated further: `gpt-oss:20b` reliably narrates grounded content but does not reliably populate the structured `used_source_chunk_ids`/`personal_examples` array fields, even with explicit prompt instruction. This is a real gap for a future task to pick up (candidates: a stricter Ollama structured-output schema making those fields effectively mandatory when non-code-block context chunks exist, or a second-pass extraction call) — not something this task's scope allows fixing further.
+- Full suite re-run after the `prompt.py` edit: `169 passed` — unchanged from baseline, confirming the prompt-wording change didn't regress any existing test.
+- **Final `abstention_score_threshold`: `0.02`** (`apps/api/app/core/config.py:27`). Story, unchanged from Task 7's measurement: against `sample-vault`'s 7 fixtures across both query forms (14 data points, real `nomic-embed-text` embeddings), the no-evidence fixture scored a top RRF score of `0.01639` on both query forms, while the 6 real fixtures scored in `[0.03227, 0.03279]` across all 12 data points — no overlap between clusters. `0.02` sits inside that gap, biased toward the abstain cluster per the design spec's preference for over-abstaining. Task 13's live no-evidence query reproduced this behavior against the real running API, so the threshold is confirmed to hold in production, not just in the calibration harness.
+- The API server was started fresh for this task and stopped cleanly at the end (`kill` + confirmed port released, no leftover uvicorn processes).
 
 ---
 
