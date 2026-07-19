@@ -475,7 +475,7 @@ git commit -m "feat(retrieval): add full-text search via websearch_to_tsquery"
 - Consumes: `ScoredChunk` (Task 3, same dataclass reused — do not redefine it). `Chunk.embedding` (`pgvector.sqlalchemy.Vector(768)`, already exists from Phase 0/1).
 - Produces: `search_vector_similarity(session: Session, query_embedding: list[float], limit: int = 20) -> list[ScoredChunk]`. Named `search_vector_similarity`, not `search_vector`, to avoid colliding with the `Chunk.search_vector` column/attribute name used throughout the codebase. Consumed by Task 5 (fusion) and Task 6 (search orchestration).
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_vector.py`:
 
@@ -575,12 +575,12 @@ def test_search_vector_similarity_excludes_chunks_with_no_embedding(db_session):
     assert {r.vault_path for r in results} == {"HasEmbedding.md"}
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_vector.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.vector'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/vector.py`:
 
@@ -621,12 +621,12 @@ def search_vector_similarity(
 
 `score` is `1 - cosine_distance` (i.e. cosine similarity, higher is better) so `ScoredChunk.score` means "higher is better" consistently across both `fulltext.py` and `vector.py` — important for Task 5's fusion and Task 7's debug output to stay consistent.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_vector.py -v`
 Expected: PASS (3 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/vector.py apps/api/tests/retrieval/test_vector.py
