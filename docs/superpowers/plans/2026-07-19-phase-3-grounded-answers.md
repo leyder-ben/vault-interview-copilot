@@ -2734,6 +2734,27 @@ git commit -m "docs: record Phase 3 real end-to-end verification result"
 - **Final `abstention_score_threshold`: `0.02`** (`apps/api/app/core/config.py:27`). Story, unchanged from Task 7's measurement: against `sample-vault`'s 7 fixtures across both query forms (14 data points, real `nomic-embed-text` embeddings), the no-evidence fixture scored a top RRF score of `0.01639` on both query forms, while the 6 real fixtures scored in `[0.03227, 0.03279]` across all 12 data points — no overlap between clusters. `0.02` sits inside that gap, biased toward the abstain cluster per the design spec's preference for over-abstaining. Task 13's live no-evidence query reproduced this behavior against the real running API, so the threshold is confirmed to hold in production, not just in the calibration harness.
 - The API server was started fresh for this task and stopped cleanly at the end (`kill` + confirmed port released, no leftover uvicorn processes).
 
+**Citation-population reliability, broader sample (2026-07-19):** Ran 10 additional real queries (real Postgres, real `nomic-embed-text` embeddings, real `gpt-oss:20b` generation via Ollama) against the live `POST /api/query` endpoint, deliberately distinct from the two queries tested in Task 13, spanning four different sample-vault topics (Terraform module structure, Kubernetes HPA config, CI/CD build-stage security scanning, Jenkins/Docker troubleshooting story, blue-green/canary rollout strategy) and both shorthand and natural phrasing. Judgment of "narrated Meridian-specific content" was made by inspecting `say_this`/`supporting_points` for concrete details traceable to the actual sample-vault text (file paths, config values, command lines, named projects) versus generic textbook explanation; "citations populated" means `sources` came back non-empty.
+
+| # | Query | Form | Narrated Meridian-specific content? | Citations populated? | Confidence | `sources` length |
+|---|---|---|---|---|---|---|
+| 1 | `terraform modules single env` | shorthand | yes (flat `.tf` files per env: compute/network/iam, matches `Terraform-Fundamentals.md`) | yes | high | 1 |
+| 2 | `How do you decide when to modularize your Terraform code?` | natural | yes (same content, plus explicit "Meridian" naming and `personal_examples`) | yes | high | 1 |
+| 3 | `hpa config example` | shorthand | yes (meridian-api, 2-10 replicas, 70% CPU target) | yes | high | 1 |
+| 4 | `Walk me through how you'd configure horizontal pod autoscaling for a service.` | natural | **no** — generic HPA/Cluster-Autoscaler explanation with no Meridian-specific values | n/a (not counted) | high | 0 |
+| 5 | `cicd security scan build stage` | shorthand | yes (literal `docker build -t meridian-api:${{ github.sha }} .` and `trivy image` commands) | **no** | high | 0 |
+| 6 | `What happens in your pipeline between a push and an image landing in the registry?` | natural | yes (same build→SHA-tag→Trivy-scan→push sequence, paraphrased without the literal project name) | **no** | high | 0 |
+| 7 | `docker socket jenkins agent fix` | shorthand | yes (docker socket bind-mount fix, meridian-api build command, matches troubleshooting log) | yes | high | 2 |
+| 8 | `Tell me about a time a CI pipeline broke in a nonobvious way.` | natural | yes (matches the Jenkins-agent-can't-reach-Docker-daemon story specifics) | **no** | high | 0 |
+| 9 | `blue green vs canary meridian` | shorthand | yes (Meridian GitOps pipeline, blue-green vs. canary distinction) | yes | high | 2 |
+| 10 | `How do you think about rollout strategy — rolling versus blue-green?` | natural | yes (Meridian GitOps image-promotion framing); response itself notes "Some cited sources could not be verified and were removed" | **no** | medium | 0 |
+
+**Raw count: 5 out of 9 queries that narrated grounded Meridian-specific content actually got populated citations.** (Y = 9, not 10 — query 4 did not narrate Meridian-specific content at all; it read as generic textbook HPA/Cluster-Autoscaler explanation, so it is not a fair test of the citation-population gap and is excluded from the denominator per the measurement brief.)
+
+This confirms Task 13's finding was not a fluke: across a broader, topic-diverse sample, `gpt-oss:20b` narrates grounded content reliably (9/10) but populates the structured citation fields only about half the time (5/9) when it does. No obvious correlation with shorthand vs. natural phrasing was observed — both forms had hits and misses (shorthand: 3/5 populated; natural: 2/4 populated, excluding query 4). Query 10 is notable: the backend's own citation-verification step stripped an unverified citation and downgraded confidence to `"medium"`, the only non-`"high"` confidence value across all 10 runs — suggesting the model does sometimes *attempt* a citation that fails verification, rather than never attempting one.
+
+Full request/response bodies for all 10 queries are recorded in `.superpowers/sdd/task-followup-citation-rate-report.md`.
+
 ---
 
 ## Summary
