@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db
 from app.core.config import settings
-from app.ingestion.embeddings import OllamaEmbeddingProvider
+from app.providers.embeddings import OllamaEmbeddingProvider
 from app.retrieval.search import search
 
 router = APIRouter()

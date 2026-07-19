@@ -4,7 +4,7 @@
 
 ```python
 class LLMProvider(Protocol):
-    async def generate_answer(
+    def generate_answer(
         self,
         query: str,
         context: list[RetrievedChunk],
@@ -12,6 +12,8 @@ class LLMProvider(Protocol):
     ) -> AnswerDraft:
         ...
 ```
+
+The workstation runs GPT-OSS 20B (`gpt-oss:20b`) for generation, not Qwen2.5 14B as earlier drafts of this doc assumed — Qwen2.5-**Coder** 14B was evaluated and rejected because its output register is tuned for code completion, not natural spoken-answer prose.
 
 The provider receives normalized context but does **not** own retrieval, citation resolution, or database access. Keep it a narrow interface — see `docs/adr/0003-postgres-pgvector.md` and CLAUDE.md principle on replaceable providers.
 

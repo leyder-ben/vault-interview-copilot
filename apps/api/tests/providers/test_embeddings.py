@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-from app.ingestion.embeddings import OllamaEmbeddingProvider
+from app.providers.embeddings import OllamaEmbeddingProvider
 
 
 def _client_with_response(expected_embeddings):

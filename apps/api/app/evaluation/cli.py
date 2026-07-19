@@ -5,7 +5,7 @@ import argparse
 from app.core.config import settings
 from app.db.base import SessionLocal
 from app.evaluation.runner import EvalGroupMetrics, load_fixtures, run_eval
-from app.ingestion.embeddings import OllamaEmbeddingProvider
+from app.providers.embeddings import OllamaEmbeddingProvider
 
 DATASET_PATHS = {
     "sample-vault": "../../evaluation/datasets/sample-vault/meridian-fixtures.yaml",

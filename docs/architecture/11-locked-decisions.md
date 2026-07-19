@@ -15,8 +15,18 @@ Reasoning: prove the workstation is sufficient before standing up a second alway
 
 ## Model selection
 
-- **Generation:** Qwen2.5 14B, Q4 quant. Fits both boxes (tighter on the 3060, workable). Same model on both — deliberate, for consistent behavior regardless of which GPU answers. Rejected 8B as a "safe" default for both — not worth downgrading the primary box's quality to hedge for a VM that isn't even running yet. If the 3060 chokes under real load later, drop to 8B *for that box specifically* at that point, not preemptively.
+- **Generation:** GPT-OSS 20B (`gpt-oss:20b`, MXFP4 quant, 131K context) via Ollama, confirmed running on the workstation. Qwen2.5-Coder 14B was evaluated and rejected — its output register is tuned for code completion, not natural spoken-answer prose, which this product needs. Whether GPT-OSS 20B (20.9B params) fits the ai-inference VM's 3060 (12GB VRAM) the way Qwen2.5 14B Q4 did is now an **open question, not a settled fact** — provider switching to that box is deferred (see `docs/superpowers/specs/2026-07-19-phase-3-grounded-answers-design.md`), so this doesn't block anything yet, but don't assume it fits until it's actually checked.
 - **Embedding:** `nomic-embed-text` via Ollama. Small footprint, no real VRAM contention on either box. **This choice is effectively permanent once indexing starts** — changing it means a full reindex, not a config swap.
+
+## Generation reasoning effort — `think='low'`, not unset
+
+GPT-OSS 20B is a "thinking"-capable model. With no `think` value set on the Ollama `/api/chat` request — the default this codebase shipped with through most of Phase 3 — Ollama runs it at unconstrained/high reasoning effort. Measured 2026-07-19 (see `docs/superpowers/plans/2026-07-19-phase-3-grounded-answers.md` for the full investigation): unset reasoning effort cost **~10.4s median / 17-22s tail per call**, generating thousands of characters of hidden chain-of-thought (`message.thinking`) that this app never reads — `providers/llm.py` only ever consumed `message.content`. That's pure latency cost for zero measured benefit.
+
+`think='low'` cut real per-call latency to **2-5s across 30+ real reps**, with no loss of structured-output validity — every one of those reps produced a valid, schema-parseable `AnswerDraft`. `think=false` (fully disabled) was tested and rejected: it returns empty `content` with `done_reason: stop`, breaking structured output entirely for this model — not a viable option at any speed. `think='medium'` was also tested (~8s) and rejected as a worse latency/benefit tradeoff than `'low'` once `'low'` was shown to work.
+
+**This is now the shipped default** — `providers/llm.py`'s `_chat_once` sets `"think": "low"` unconditionally, no settings toggle, matching this project's "no config file for something a single user doesn't need to choose" posture elsewhere.
+
+**One explicit caveat, stated plainly rather than dressed up with false precision:** unlike the latency numbers above (real, repeated, measured), spoken-answer *quality* at `think='low'` was only spot-checked across 4 real queries and read by eye as accurate and appropriately detailed — this was a judgment call, not a scored metric. It is not held to the same evidentiary bar as `abstention_score_threshold` or `citation_relevance_threshold`, both of which were locked in against real labeled data. If answer quality is ever suspected to have regressed, that suspicion deserves its own real measurement before being dismissed or confirmed.
 
 ## Vault ingestion ignore patterns
 

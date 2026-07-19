@@ -34,3 +34,24 @@ def percentile(values: list[float], p: float) -> float:
         return sorted_values[int(index)]
     fraction = index - lower
     return sorted_values[lower] + (sorted_values[upper] - sorted_values[lower]) * fraction
+
+
+def citation_validity(
+    cited_paths: list[str], expected_notes: list[str], expected_abstain: bool
+) -> bool:
+    if expected_abstain:
+        return len(cited_paths) == 0
+    if not cited_paths:
+        return False
+    return all(path in expected_notes for path in cited_paths)
+
+
+def answer_length_sentences(say_this: str) -> int:
+    import re
+
+    segments = re.split(r"[.!?]+", say_this)
+    return len([s for s in segments if s.strip()])
+
+
+def answer_length_ok(say_this: str) -> bool:
+    return 2 <= answer_length_sentences(say_this) <= 5

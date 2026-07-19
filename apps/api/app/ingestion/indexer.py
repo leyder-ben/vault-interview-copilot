@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Chunk, IndexRun, Note, NoteLink
 from app.ingestion.chunker import chunk_note
-from app.ingestion.embeddings import EmbeddingProvider
 from app.ingestion.parser import parse_note
 from app.ingestion.scanner import scan_vault
+from app.providers.embeddings import EmbeddingProvider
 
 
 @dataclass

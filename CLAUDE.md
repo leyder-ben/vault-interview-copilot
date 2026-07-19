@@ -13,11 +13,15 @@ A local, single-user web app that indexes Ben's private Obsidian vault and answe
 Full reasoning: `docs/architecture/11-locked-decisions.md`. Short version:
 
 - **No containerized Ollama.** App points at the workstation's existing Ollama (`localhost:11434`) by default. The ai-inference VM is a registered fallback, not primary. Active provider is a Postgres `settings` row, switchable at runtime, not a config file.
-- **Models:** Qwen2.5 14B (Q4) for generation, `nomic-embed-text` for embeddings. Same generation model on both provider boxes.
+- **Models:** GPT-OSS 20B (`gpt-oss:20b`, MXFP4 quant) for generation, `nomic-embed-text` for embeddings. Corrected from an earlier Qwen2.5 14B decision during Phase 3 — Qwen2.5-Coder 14B was evaluated and rejected, its output register is tuned for code completion, not natural spoken-answer prose. Whether it fits the ai-inference VM's 3060 (12GB VRAM) the way the smaller Qwen model did is an open question, not settled — doesn't block anything since provider switching to that box is still deferred.
 - **Ignore patterns for the vault scanner:** exclude `.git/**`, `.obsidian/**`, `.trash/**`, `_Templates/**`, `_Agents/**`, `_Skills/**`, `_Workflows/**`, `_About-Ben/**` by explicit name. Do **not** use a blanket `_*/**` pattern — it would wrongly swallow `_Source-Docs/` folders, which hold real indexable content. `00-Inbox/` is NOT ignored.
 - **Postgres image:** `pgvector/pgvector:pg16`, not stock `postgres` + manual extension build.
 - **Repo name:** `vault-interview-copilot` — already set, don't rename.
 - **Query logging:** on by default (`query_runs` table), with an easy purge path. Not a privacy problem at this stage — single-user, local-only tool.
+
+## Decision authority
+
+**Phase-completion and exit-condition calls are Ben's to make, not inferred.** When a phase's exit condition is ambiguous, partially met, or has a disclosed gap, present the finding and the options — don't decide "met" or "not met" and write that conclusion into `10-delivery-plan.md` or this file unilaterally, even when running autonomously and even when the reasoning is sound. This applies specifically to marking an exit condition met, advancing "current phase," and any other edit that changes what the project's source-of-truth docs claim is *done*. Document findings, gaps, and candidate follow-ups freely — that's expected. Deciding the finding is good enough to ship on is not.
 
 ## Architecture principles (non-negotiable unless you have a measured reason)
 
@@ -71,4 +75,4 @@ The real Obsidian vault is private and lives outside this repo. It must be mount
 
 ## Delivery order
 
-Follow `docs/architecture/10-delivery-plan.md` phase-by-phase. Do not skip ahead to generation before the current phase's exit condition is met. Current phase: **Phase 2 — Retrieval.** Phase 1 exit condition met 2026-07-18 (`sample-vault/` indexes repeatedly via `run_index`, second run touches zero files — merged in PR #2). Phase 2 exit condition: shorthand queries consistently retrieve the expected sample notes.
+Follow `docs/architecture/10-delivery-plan.md` phase-by-phase. Do not skip ahead to the next phase before the current phase's exit condition is met. Current phase: **Phase 4 — Web Interface.** Phase 1 exit condition met 2026-07-18 (`sample-vault/` indexes repeatedly via `run_index`, second run touches zero files — merged in PR #2). Phase 2 exit condition met 2026-07-18 (shorthand queries hit measured Recall@5 = 1.0 against `sample-vault` — merged in PR #8). Phase 3 exit condition met 2026-07-19 (backend citation cross-check verifies both membership and content relevance, measured precision 0.93/recall 0.97 on a 92-pair labeled set; retrieval-gated abstention proven against real data; generation latency cut from ~10s median to 2-5s via `think='low'`) — citation-*recall* (the model sometimes leaves citations empty on eligible queries) is a disclosed, tracked follow-up, not a blocker; see `docs/architecture/10-delivery-plan.md`'s Phase 3 entry.

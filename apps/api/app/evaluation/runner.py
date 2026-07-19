@@ -6,7 +6,7 @@ import yaml
 from sqlalchemy.orm import Session
 
 from app.evaluation.metrics import exact_match, hit_at_k, percentile, reciprocal_rank
-from app.ingestion.embeddings import EmbeddingProvider
+from app.providers.embeddings import EmbeddingProvider
 from app.retrieval.search import search
 
 
@@ -16,6 +16,7 @@ class Fixture:
     query: str
     interviewer_phrasing: str | None
     expected_notes: list[str]
+    expected_abstain: bool = False
 
 
 @dataclass
@@ -28,6 +29,8 @@ class FixtureResult:
     reciprocal_rank: float
     exact_match: bool
     latency_ms: float
+    top_rrf_score: float
+    expected_abstain: bool
 
 
 @dataclass
@@ -57,6 +60,7 @@ def load_fixtures(path: str) -> list[Fixture]:
             query=item["query"],
             interviewer_phrasing=item.get("interviewer_phrasing"),
             expected_notes=item["expected_notes"],
+            expected_abstain=item.get("expected_abstain", False),
         )
         for item in raw_fixtures
     ]
@@ -70,6 +74,7 @@ def _score_one(
     query_text: str,
 ) -> FixtureResult:
     result = search(session, embedding_provider, query_text)
+    top_score = result.fused_results[0].rrf_score if result.fused_results else 0.0
     return FixtureResult(
         fixture_id=fixture.id,
         query_form=query_form,
@@ -79,6 +84,8 @@ def _score_one(
         reciprocal_rank=reciprocal_rank(result.fused_results, fixture.expected_notes),
         exact_match=exact_match(result.fused_results, fixture.expected_notes),
         latency_ms=result.timing_ms["total"],
+        top_rrf_score=top_score,
+        expected_abstain=fixture.expected_abstain,
     )
 
 
@@ -111,8 +118,9 @@ def run_eval(
                 )
             )
 
-    shorthand_results = [r for r in results if r.query_form == "shorthand"]
-    natural_results = [r for r in results if r.query_form == "natural"]
+    recall_eligible = [r for r in results if not r.expected_abstain]
+    shorthand_results = [r for r in recall_eligible if r.query_form == "shorthand"]
+    natural_results = [r for r in recall_eligible if r.query_form == "natural"]
 
     return EvalReport(
         shorthand=_aggregate(shorthand_results),

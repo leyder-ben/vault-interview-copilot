@@ -118,3 +118,83 @@ def test_run_eval_skips_natural_form_when_absent(db_session, tmp_path):
 
     assert len(report.results) == 1
     assert report.results[0].query_form == "shorthand"
+
+
+def test_load_fixtures_defaults_expected_abstain_to_false(tmp_path):
+    path = _write_fixture_file(
+        tmp_path,
+        """
+        - id: fixture-1
+          query: "tf drift"
+          expected_notes:
+            - "Terraform.md"
+        """,
+    )
+    fixtures = load_fixtures(path)
+    assert fixtures[0].expected_abstain is False
+
+
+def test_load_fixtures_reads_explicit_expected_abstain(tmp_path):
+    path = _write_fixture_file(
+        tmp_path,
+        """
+        - id: fixture-1
+          query: "database connection pooling"
+          expected_notes: []
+          expected_abstain: true
+        """,
+    )
+    fixtures = load_fixtures(path)
+    assert fixtures[0].expected_abstain is True
+
+
+def test_run_eval_excludes_expected_abstain_fixtures_from_recall_aggregation(db_session, tmp_path):
+    note = Note(
+        vault_path="Terraform.md",
+        filename="Terraform.md",
+        title="Terraform.md",
+        content_hash="hash-terraform",
+        modified_at=datetime.now(UTC),
+    )
+    db_session.add(note)
+    db_session.flush()
+    content = "Document: Terraform\nState drift happens when infrastructure diverges."
+    db_session.add(
+        Chunk(
+            note_id=note.id,
+            chunk_index=0,
+            start_line=1,
+            end_line=5,
+            content=content,
+            content_with_context=content,
+            content_hash="chash-terraform",
+            embedding=FakeEmbeddingProvider().embed_batch([content])[0],
+        )
+    )
+    db_session.commit()
+
+    path = _write_fixture_file(
+        tmp_path,
+        """
+        - id: fixture-real
+          query: "tf drift"
+          expected_notes:
+            - "Terraform.md"
+        - id: fixture-abstain
+          query: "database connection pooling"
+          expected_notes: []
+          expected_abstain: true
+        """,
+    )
+    fixtures = load_fixtures(path)
+
+    report = run_eval(db_session, FakeEmbeddingProvider(), fixtures)
+
+    # 2 fixtures, both shorthand-only (no interviewer_phrasing) -> 2 raw results,
+    # but only 1 is recall-eligible.
+    assert len(report.results) == 2
+    shorthand_recall_eligible = [
+        r for r in report.results if r.query_form == "shorthand" and not r.expected_abstain
+    ]
+    assert len(shorthand_recall_eligible) == 1
+    assert report.shorthand.recall_at_5 in (0.0, 1.0)  # computed from 1 fixture, not 2
