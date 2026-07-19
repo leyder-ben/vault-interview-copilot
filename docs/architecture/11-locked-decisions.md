@@ -15,7 +15,7 @@ Reasoning: prove the workstation is sufficient before standing up a second alway
 
 ## Model selection
 
-- **Generation:** Qwen2.5 14B, Q4 quant. Fits both boxes (tighter on the 3060, workable). Same model on both — deliberate, for consistent behavior regardless of which GPU answers. Rejected 8B as a "safe" default for both — not worth downgrading the primary box's quality to hedge for a VM that isn't even running yet. If the 3060 chokes under real load later, drop to 8B *for that box specifically* at that point, not preemptively.
+- **Generation:** GPT-OSS 20B (`gpt-oss:20b`, MXFP4 quant, 131K context) via Ollama, confirmed running on the workstation. Qwen2.5-Coder 14B was evaluated and rejected — its output register is tuned for code completion, not natural spoken-answer prose, which this product needs. Whether GPT-OSS 20B (20.9B params) fits the ai-inference VM's 3060 (12GB VRAM) the way Qwen2.5 14B Q4 did is now an **open question, not a settled fact** — provider switching to that box is deferred (see `docs/superpowers/specs/2026-07-19-phase-3-grounded-answers-design.md`), so this doesn't block anything yet, but don't assume it fits until it's actually checked.
 - **Embedding:** `nomic-embed-text` via Ollama. Small footprint, no real VRAM contention on either box. **This choice is effectively permanent once indexing starts** — changing it means a full reindex, not a config swap.
 
 ## Vault ingestion ignore patterns
