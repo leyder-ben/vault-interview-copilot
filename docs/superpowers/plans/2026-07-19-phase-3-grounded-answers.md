@@ -1208,7 +1208,7 @@ git commit -m "feat(evaluation): add expected_abstain fixture field and no-evide
 
 **Read this task's process before starting, not just its code.** Like Phase 2's Recall@5 measurement, `abstention_score_threshold` is not decided in advance — it comes from a real measurement against real embeddings, taken as part of this task. This task requires a **live, running Ollama** at `settings.ollama_workstation_url` serving `nomic-embed-text` (confirmed available during design). `FakeEmbeddingProvider` cannot be used here — its hash-seeded vectors are not semantically meaningful, and for the no-evidence fixture, full-text search correctly returns zero matches (no lexical overlap), so the fused score is driven entirely by the vector component. A threshold calibrated against noise wouldn't mean anything.
 
-- [ ] **Step 1: Index sample-vault with real embeddings, if not already indexed**
+- [x] **Step 1: Index sample-vault with real embeddings, if not already indexed**
 
 ```bash
 cd apps/api && .venv/bin/python -m app.ingestion.cli --vault-path ../../sample-vault
@@ -1216,7 +1216,7 @@ cd apps/api && .venv/bin/python -m app.ingestion.cli --vault-path ../../sample-v
 
 Expected: `status=success`, no errors. (If sample-vault is already indexed from a prior session, this re-run is a no-op per Phase 1's incremental-indexing guarantee — safe either way.)
 
-- [ ] **Step 2: Write and run a one-off measurement script**
+- [x] **Step 2: Write and run a one-off measurement script**
 
 This is throwaway — write it to `/tmp` (or your scratchpad), not to the repo. It reuses `run_eval`'s scoring so the measurement reflects the exact code path `abstention_score_threshold` will gate:
 
@@ -1249,13 +1249,13 @@ cd /home/ben/Projects/vault-interview-copilot && apps/api/.venv/bin/python /tmp/
 
 Expected output: 14 lines (7 fixtures × 2 forms, since all 7 now have `interviewer_phrasing`), sorted ascending by `top_rrf_score`, each tagged `abstain=True` or `abstain=False`.
 
-- [ ] **Step 3: Pick the threshold from the printed distribution**
+- [x] **Step 3: Pick the threshold from the printed distribution**
 
 Look at the printed list. The `abstain=True` rows (both query forms of the no-evidence fixture) should cluster at the low end, and the `abstain=False` rows should cluster higher. Pick a value strictly between the highest `abstain=True` score and the lowest `abstain=False` score. Per the design spec's stated bias, if there's a gap, pick a value closer to the `abstain=True` cluster (over-abstaining at the boundary costs a rerun; a false confident answer is the exact failure mode this phase exists to prevent).
 
 If the two clusters **overlap** (an `abstain=True` score is higher than some `abstain=False` score) — this is a real, informative result, not a bug to hide. Do not adjust fixtures or retrieval code to make them separate (same "one measurement, don't massage the data" discipline as Phase 2's Recall@5 process). Instead: pick the threshold at the midpoint of the overlap, and note the overlap explicitly in Step 4's comment — a future phase's private-fixture-driven remeasurement is where this gets revisited with more data, not this task.
 
-- [ ] **Step 4: Lock the measured value into `config.py`**
+- [x] **Step 4: Lock the measured value into `config.py`**
 
 Replace the Task 2 placeholder comment and value in `apps/api/app/core/config.py` with the real measurement:
 
@@ -1274,7 +1274,7 @@ Replace the Task 2 placeholder comment and value in `apps/api/app/core/config.py
 
 Fill in the bracketed placeholders with the actual numbers from Step 2's output and the actual value chosen in Step 3 — this comment must contain real numbers before committing, not the bracketed template shown here.
 
-- [ ] **Step 5: Confirm nothing else broke**
+- [x] **Step 5: Confirm nothing else broke**
 
 ```bash
 cd apps/api && .venv/bin/pytest -v
@@ -1282,13 +1282,13 @@ cd apps/api && .venv/bin/pytest -v
 
 Expected: same pass count as before this task (this only changes a default float value; nothing yet reads it in a way that changes test behavior since `generation/service.py` doesn't exist until Task 10).
 
-- [ ] **Step 6: Lint and format**
+- [x] **Step 6: Lint and format**
 
 ```bash
 cd apps/api && .venv/bin/ruff format . && .venv/bin/ruff check .
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/api/app/core/config.py
