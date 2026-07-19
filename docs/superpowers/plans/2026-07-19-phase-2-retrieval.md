@@ -647,7 +647,7 @@ git commit -m "feat(retrieval): add pgvector cosine-similarity search"
 
 This is a pure function — no database, no fixtures beyond hand-built `ScoredChunk` lists.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/api/tests/retrieval/test_fusion.py`:
 
@@ -699,12 +699,12 @@ def test_empty_inputs_produce_empty_output():
     assert reciprocal_rank_fusion([], [], k=60) == []
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fusion.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'app.retrieval.fusion'`
 
-- [ ] **Step 3: Write the implementation**
+- [x] **Step 3: Write the implementation**
 
 Create `apps/api/app/retrieval/fusion.py`:
 
@@ -772,12 +772,12 @@ def reciprocal_rank_fusion(
     ]
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd apps/api && pytest tests/retrieval/test_fusion.py -v`
 Expected: PASS (4 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/api/app/retrieval/fusion.py apps/api/tests/retrieval/test_fusion.py
