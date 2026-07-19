@@ -19,6 +19,10 @@ Full reasoning: `docs/architecture/11-locked-decisions.md`. Short version:
 - **Repo name:** `vault-interview-copilot` — already set, don't rename.
 - **Query logging:** on by default (`query_runs` table), with an easy purge path. Not a privacy problem at this stage — single-user, local-only tool.
 
+## Decision authority
+
+**Phase-completion and exit-condition calls are Ben's to make, not inferred.** When a phase's exit condition is ambiguous, partially met, or has a disclosed gap, present the finding and the options — don't decide "met" or "not met" and write that conclusion into `10-delivery-plan.md` or this file unilaterally, even when running autonomously and even when the reasoning is sound. This applies specifically to marking an exit condition met, advancing "current phase," and any other edit that changes what the project's source-of-truth docs claim is *done*. Document findings, gaps, and candidate follow-ups freely — that's expected. Deciding the finding is good enough to ship on is not.
+
 ## Architecture principles (non-negotiable unless you have a measured reason)
 
 1. **Modular monolith, not microservices.** One FastAPI app, clean internal module boundaries (`ingestion/`, `retrieval/`, `generation/`, `providers/`, `db/`). No service-to-service network calls. See `docs/adr/0001-modular-monolith.md`.
@@ -71,4 +75,4 @@ The real Obsidian vault is private and lives outside this repo. It must be mount
 
 ## Delivery order
 
-Follow `docs/architecture/10-delivery-plan.md` phase-by-phase. Do not skip ahead to the next phase before the current phase's exit condition is met. Current phase: **Phase 4 — Web Interface.** Phase 1 exit condition met 2026-07-18 (`sample-vault/` indexes repeatedly via `run_index`, second run touches zero files — merged in PR #2). Phase 2 exit condition met 2026-07-18 (shorthand queries hit measured Recall@5 = 1.0 against `sample-vault` — merged in PR #8). Phase 3 exit condition met 2026-07-19, with a disclosed limitation (see `docs/architecture/10-delivery-plan.md`'s Phase 3 entry): the backend citation cross-check and retrieval-gated abstention are structurally enforced and confirmed against real `gpt-oss:20b`/`nomic-embed-text`, but citation *population* is intermittently unreliable on personal-project-evidence queries — tracked as an explicit follow-up, not blocking Phase 4.
+Follow `docs/architecture/10-delivery-plan.md` phase-by-phase. Do not skip ahead to the next phase before the current phase's exit condition is met. Current phase: **Phase 3 — Grounded Answers.** Phase 1 exit condition met 2026-07-18 (`sample-vault/` indexes repeatedly via `run_index`, second run touches zero files — merged in PR #2). Phase 2 exit condition met 2026-07-18 (shorthand queries hit measured Recall@5 = 1.0 against `sample-vault` — merged in PR #8). Phase 3: implementation complete and reviewed, but exit-condition status is **pending Ben's review** — a disclosed citation-population gap was found during real-model verification; see `docs/architecture/10-delivery-plan.md`'s Phase 3 entry for the finding and the measured rate. Per the Decision authority section above, this doc does not mark it met or advance past it until Ben decides.
