@@ -64,7 +64,7 @@ def test_main_runs_eval_and_prints_both_forms(tmp_path, db_session, monkeypatch,
 
     monkeypatch.setattr(cli_module, "SessionLocal", lambda: db_session)
     monkeypatch.setattr(
-        cli_module, "OllamaEmbeddingProvider", lambda base_url: FakeEmbeddingProvider()
+        cli_module, "OllamaEmbeddingProvider", lambda base_url, model=None: FakeEmbeddingProvider()
     )
     monkeypatch.setitem(cli_module.DATASET_PATHS, "sample-vault", str(fixtures_path))
 

@@ -40,14 +40,20 @@ def main(argv: list[str] | None = None) -> None:
 
     session = SessionLocal()
     try:
-        provider = OllamaEmbeddingProvider(base_url=settings.ollama_workstation_url)
+        provider = OllamaEmbeddingProvider(
+            base_url=settings.ollama_workstation_url, model=settings.embedding_model
+        )
         report = run_eval(session, provider, fixtures)
 
         _print_group("Shorthand", report.shorthand)
         _print_group("Natural phrasing", report.natural)
         print(
-            f"Retrieval latency: p50 {report.shorthand.latency_p50_ms:.0f}ms, "
+            f"Shorthand latency: p50 {report.shorthand.latency_p50_ms:.0f}ms, "
             f"p95 {report.shorthand.latency_p95_ms:.0f}ms"
+        )
+        print(
+            f"Natural phrasing latency: p50 {report.natural.latency_p50_ms:.0f}ms, "
+            f"p95 {report.natural.latency_p95_ms:.0f}ms"
         )
     finally:
         session.close()

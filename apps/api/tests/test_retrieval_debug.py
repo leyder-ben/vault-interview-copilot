@@ -37,7 +37,9 @@ def test_debug_retrieve_returns_full_pipeline_breakdown(db_session, monkeypatch)
     import app.api.retrieval_debug as retrieval_debug_module
 
     monkeypatch.setattr(
-        retrieval_debug_module, "OllamaEmbeddingProvider", lambda base_url: FakeEmbeddingProvider()
+        retrieval_debug_module,
+        "OllamaEmbeddingProvider",
+        lambda base_url, model=None: FakeEmbeddingProvider(),
     )
     app.dependency_overrides[get_db] = lambda: db_session
     try:

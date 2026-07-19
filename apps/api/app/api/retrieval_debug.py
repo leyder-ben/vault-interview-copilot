@@ -11,7 +11,9 @@ router = APIRouter()
 
 @router.get("/api/debug/retrieve")
 def debug_retrieve(q: str, db: Session = Depends(get_db)) -> dict:
-    provider = OllamaEmbeddingProvider(base_url=settings.ollama_workstation_url)
+    provider = OllamaEmbeddingProvider(
+        base_url=settings.ollama_workstation_url, model=settings.embedding_model
+    )
     result = search(db, provider, q)
 
     return {
