@@ -63,7 +63,7 @@ Single centered column, max-width ~760px, chosen over a two-zone dashboard split
 
 ```
 ┌─────────────────────────────────────────┐
-│ TopBar: app name          [● Indexed·2h]│  quiet index status, Popover on hover/click
+│ TopBar: app name          [● Indexed·2h]│  quiet index status, HoverCard on hover/focus
 ├─────────────────────────────────────────┤
 │         [ Query input, Enter⏎ ]         │  centered column, max-width ~760px
 │  ┌───────────────────────────────────┐  │
@@ -83,7 +83,9 @@ Stack is locked (React + Vite + TS + Tailwind + TanStack Query — `CLAUDE.md`).
 
 - Considered fully custom (zero primitive deps) — maximum control, but popovers and collapsibles are exactly the category that's fiddly to hand-roll correctly (focus trapping, `aria-expanded`, escape/click-outside).
 - Considered full shadcn/ui — fastest assembly, but ships its own visual defaults that would need deliberate overriding everywhere to avoid landing on the generic look this design explicitly avoids.
-- **Chosen: Radix primitives (unstyled), used only for `Collapsible` and `Popover`, fully custom Tailwind everywhere else.** Radix ships zero visual opinion, so it doesn't fight the design direction, while still getting correct keyboard/focus behavior for the two widgets where that's easy to get subtly wrong. This app is keyboard-first enough (focus shortcut, Enter-to-submit) that this matters.
+- **Chosen: Radix primitives (unstyled), used only for `Collapsible` and `HoverCard`, fully custom Tailwind everywhere else.** Radix ships zero visual opinion, so it doesn't fight the design direction, while still getting correct keyboard/focus behavior for the widgets where that's easy to get subtly wrong. This app is keyboard-first enough (focus shortcut, Enter-to-submit) that this matters.
+
+**Index status: hover/click resolved to `HoverCard`, not `Popover`.** An earlier draft of this spec paired `IndexStatusBadge` with `Popover` while still calling the interaction "hover/click" in the layout diagram — `Popover` only opens on click by default, so that was a silent narrowing of the stated interaction, not a deliberate choice. Resolved (Ben's call) in favor of real hover support: `HoverCard` is Radix's purpose-built primitive for this exact pattern (hover *and* keyboard focus open it, with correctly-handled open/close delay and dismissal timing) rather than bolting `onMouseEnter`/`onMouseLeave` onto `Popover` by hand. `HoverCard` does not listen for click events directly — a mouse click opens it only as a side effect of the click moving focus to the trigger `<button>`, which is standard behavior in Chromium/Firefox but not guaranteed in Safari (where clicking a `<button>` doesn't always move focus to it). Given this is a single-user local tool, that gap is likely moot in practice, but it's a real caveat, not a hand-wave — Task 10's manual smoke-check step should specifically confirm click-to-open in whatever browser Ben actually uses, rather than assuming it away.
 
 Icons via `lucide-react` — small, tree-shakeable, no visual opinion beyond the icon itself.
 
@@ -93,7 +95,7 @@ Icons via `lucide-react` — small, tree-shakeable, no visual opinion beyond the
 App
 └─ AppShell                 (centered column, max-width, top bar slot)
    ├─ TopBar
-   │  └─ IndexStatusBadge   (Radix Popover: dot+label trigger -> detail panel)
+   │  └─ IndexStatusBadge   (Radix HoverCard: dot+label trigger -> detail panel, opens on hover/focus)
    ├─ QueryInput            (controlled input, Enter submits, "/" focuses globally)
    └─ AnswerPanel           (switches on mutation status)
       ├─ LoadingState       (skeleton, same slot/dimensions as AnswerCard)
@@ -143,7 +145,7 @@ Derived client-side from the existing `POST /api/query` response shape — no ne
 Derived from the real `GET /api/index/status` response shape (`apps/api/app/api/index_status.py`: `note_count`, `embedding_model`, `last_run: { status, started_at, completed_at, files_*, errors } | null`; `status` is written as exactly `"success"` or `"failed"` by `app/ingestion/indexer.py` — no other values exist today). Spelled out explicitly since the testing section asserts a specific dot color per case:
 
 - `last_run === null` (never indexed) -> **neutral/gray dot**, label "Not indexed."
-- `last_run.status === "failed"` (or `errors` is non-empty) -> **red dot**, label "Index error" — Popover detail shows the error content from `errors`.
+- `last_run.status === "failed"` (or `errors` is non-empty) -> **red dot**, label "Index error" — HoverCard detail shows the error content from `errors`.
 - `last_run.status === "success"` and no errors -> **green dot**, label "Indexed · {relative time since `completed_at`}."
 
 No separate "stale" state for V1 — not in the required list, and inventing a staleness threshold isn't justified by anything measured yet (YAGNI).
@@ -154,9 +156,9 @@ No separate "stale" state for V1 — not in the required list, and inventing a s
 
 **Server state — TanStack Query, no other state library** (YAGNI: nothing here needs Redux/Zustand/Context):
 - `useMutation` wraps `POST /api/query`, fired on submit (Enter or button click). Its status (`idle`/`pending`/`error`/`success`) drives `AnswerPanel`'s branch directly.
-- `useQuery(['index-status'], ...)` wraps `GET /api/index/status` — fetched on mount, `refetchInterval: 120_000` (2 min) so the badge can go stale without user action, plus a manual `refetch()` when the `IndexStatusBadge` popover opens.
+- `useQuery(['index-status'], ...)` wraps `GET /api/index/status` — fetched on mount, `refetchInterval: 120_000` (2 min) so the badge can go stale without user action, plus a manual `refetch()` when the `IndexStatusBadge`'s `HoverCard` opens.
 
-**Local component state:** the controlled query-input text, and the Popover's open/closed state (managed internally by Radix). That's the entire non-server-state surface.
+**Local component state:** the controlled query-input text, and the `HoverCard`'s open/closed state (managed internally by Radix). That's the entire non-server-state surface.
 
 ## Error handling
 
