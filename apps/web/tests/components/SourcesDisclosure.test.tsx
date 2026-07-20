@@ -28,4 +28,20 @@ describe("SourcesDisclosure", () => {
     expect(screen.getByText("Projects/Whetstone/Infrastructure.md")).toBeVisible();
     expect(screen.getByText(/Terraform Drift/)).toBeVisible();
   });
+
+  it("renders lines without a dangling separator when heading is null", async () => {
+    const sourcesWithNullHeading: QuerySource[] = [
+      {
+        path: "Projects/Meridian/Overview.md",
+        heading: null,
+        start_line: 1,
+        end_line: 10,
+        score: 0.75,
+      },
+    ];
+    render(<SourcesDisclosure sources={sourcesWithNullHeading} />);
+
+    await userEvent.click(screen.getByText("Sources (1)", { exact: false }));
+    expect(screen.getByText("lines 1-10")).toBeVisible();
+  });
 });

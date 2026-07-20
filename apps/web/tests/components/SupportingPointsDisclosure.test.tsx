@@ -15,13 +15,37 @@ describe("SupportingPointsDisclosure", () => {
     render(
       <SupportingPointsDisclosure
         supportingPoints={["Point one"]}
-        personalExamples={["Example one"]}
+        personalExamples={[{ project: "Meridian", example: "Example one", source_chunk_ids: [1] }]}
       />
     );
     expect(screen.queryByText("Point one")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByText("Supporting points & examples", { exact: false }));
     expect(screen.getByText("Point one")).toBeVisible();
-    expect(screen.getByText("Example one")).toBeVisible();
+    expect(screen.getByText("Meridian: Example one")).toBeVisible();
+  });
+
+  it("renders each personal example's project and example text from the real object shape", async () => {
+    render(
+      <SupportingPointsDisclosure
+        supportingPoints={[]}
+        personalExamples={[
+          {
+            project: "Meridian",
+            example: "Led the migration off legacy queues.",
+            source_chunk_ids: [1, 2],
+          },
+          {
+            project: "Whetstone",
+            example: "Diagnosed the terraform drift in prod.",
+            source_chunk_ids: [3],
+          },
+        ]}
+      />
+    );
+
+    await userEvent.click(screen.getByText("Supporting points & examples", { exact: false }));
+    expect(screen.getByText("Meridian: Led the migration off legacy queues.")).toBeVisible();
+    expect(screen.getByText("Whetstone: Diagnosed the terraform drift in prod.")).toBeVisible();
   });
 });

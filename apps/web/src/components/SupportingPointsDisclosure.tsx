@@ -1,9 +1,10 @@
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { useState } from "react";
+import type { PersonalExample } from "../api/types";
 
 interface SupportingPointsDisclosureProps {
   supportingPoints: string[];
-  personalExamples: string[];
+  personalExamples: PersonalExample[];
 }
 
 export function SupportingPointsDisclosure({
@@ -30,7 +31,9 @@ export function SupportingPointsDisclosure({
         {personalExamples.length > 0 ? (
           <ul className="list-disc space-y-1 pl-5 text-ink-muted">
             {personalExamples.map((example) => (
-              <li key={example}>{example}</li>
+              <li key={`${example.project}-${example.example}`}>
+                {example.project}: {example.example}
+              </li>
             ))}
           </ul>
         ) : null}

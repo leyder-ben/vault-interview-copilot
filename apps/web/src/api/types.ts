@@ -2,16 +2,22 @@ export type Confidence = "high" | "medium" | "low";
 
 export interface QuerySource {
   path: string;
-  heading: string;
+  heading: string | null;
   start_line: number;
   end_line: number;
   score: number;
 }
 
+export interface PersonalExample {
+  project: string;
+  example: string;
+  source_chunk_ids: number[];
+}
+
 export interface QueryAnswer {
   say_this: string;
   supporting_points: string[];
-  personal_examples: string[];
+  personal_examples: PersonalExample[];
 }
 
 export interface QueryResponse {

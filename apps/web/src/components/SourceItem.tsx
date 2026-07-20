@@ -8,7 +8,7 @@ export function SourceItem({ source }: { source: QuerySource }) {
         <span className="text-ink-muted">{source.score.toFixed(2)}</span>
       </div>
       <div className="text-meta text-ink-muted">
-        {source.heading} · lines {source.start_line}-{source.end_line}
+        {source.heading ? `${source.heading} · ` : ""}lines {source.start_line}-{source.end_line}
       </div>
     </div>
   );
