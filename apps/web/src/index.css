@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+/*
+ * The `geist` npm package (v1.7.2) has no plain CSS entry point — its
+ * `package.json` `exports` only expose Next.js `next/font` loader modules
+ * (`./font/sans`, `./font/mono`, etc.), not usable outside Next.js. It does
+ * ship the raw variable-weight woff2 under `dist/fonts/geist-sans/`, vendored
+ * here at `src/assets/fonts/Geist-Variable.woff2`, so we self-host it via a
+ * hand-written @font-face instead of an `@import`.
+ */
+@font-face {
+  font-family: "Geist";
+  src: url("./assets/fonts/Geist-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-background: #0b0b0d;
+  --color-surface: #18181b;
+  --color-border: #2a2a2e;
+  --color-ink: #f5f5f7;
+  --color-ink-muted: #a1a1aa;
+
+  --font-sans: "Geist", "IBM Plex Sans", system-ui, sans-serif;
+
+  --text-meta: 14px;
+  --text-meta--line-height: 1.4;
+  --text-body: 17px;
+  --text-body--line-height: 1.6;
+  --text-answer: 26px;
+  --text-answer--line-height: 1.5;
+  --text-answer--font-weight: 600;
+}
+
+body {
+  @apply bg-background font-sans text-ink;
+}
