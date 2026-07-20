@@ -4,7 +4,7 @@
 
 **Goal:** Build the React/Vite/TypeScript frontend in `apps/web/` (currently an empty Phase 0 scaffold) that lets Ben type a shorthand query and get a speakable, sourced answer from the existing `POST /api/query` backend, fast enough to matter mid-interview.
 
-**Architecture:** Single centered-column page. TanStack Query owns all server state (a mutation for `POST /api/query`, a polled query for `GET /api/index/status`); local component state is limited to the query input text and Radix's own open/closed state. Radix UI primitives (unstyled) provide correct keyboard/focus behavior for `Collapsible` and `Popover` only; every other visual element is fully custom Tailwind — no component library, no generic-SaaS visual defaults.
+**Architecture:** Single centered-column page. TanStack Query owns all server state (a mutation for `POST /api/query`, a polled query for `GET /api/index/status`); local component state is limited to the query input text and Radix's own open/closed state. Radix UI primitives (unstyled) provide correct keyboard/focus behavior for `Collapsible` and `HoverCard` only; every other visual element is fully custom Tailwind — no component library, no generic-SaaS visual defaults.
 
 **Tech Stack:** React + TypeScript, Vite, Tailwind CSS v4 (CSS-first `@theme` config, no `tailwind.config` file), TanStack Query v5, Radix UI primitives, `lucide-react` icons, self-hosted Geist font (via the `geist` npm package). Vitest + React Testing Library for unit/integration tests, Playwright for end-to-end (manual runs only — never CI, matching the backend's own model-dependent-test rule).
 
@@ -46,7 +46,7 @@
 ```bash
 cd apps/web
 npm init -y
-npm install react react-dom @tanstack/react-query @radix-ui/react-collapsible @radix-ui/react-popover lucide-react geist
+npm install react react-dom @tanstack/react-query @radix-ui/react-collapsible @radix-ui/react-hover-card lucide-react geist
 npm install -D vite @vitejs/plugin-react typescript @types/react @types/react-dom tailwindcss @tailwindcss/vite vitest @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom eslint @eslint/js typescript-eslint eslint-plugin-react-hooks prettier @playwright/test
 ```
 
@@ -917,10 +917,10 @@ export function formatRelativeTime(isoTimestamp: string | null): string {
 }
 ```
 
-- [ ] **Step 5: Write `src/components/IndexStatusBadge.tsx`**
+- [ ] **Step 5: Write `src/components/IndexStatusBadge.tsx`** — uses `HoverCard`, not `Popover`: the spec calls this interaction "hover/click," and `HoverCard` is Radix's purpose-built primitive for hover-and-keyboard-focus-triggered content (correct open/close delay and dismissal timing), where `Popover` only opens on click by default. `HoverCard` doesn't listen for click events directly — a mouse click opens it as a side effect of moving focus to the trigger `<button>`, which holds in Chromium/Firefox but isn't guaranteed in Safari. Task 10's manual smoke-check step should confirm click-to-open in whatever browser Ben actually uses.
 
 ```tsx
-import * as Popover from "@radix-ui/react-popover";
+import * as HoverCard from "@radix-ui/react-hover-card";
 import { useIndexStatus } from "../api/hooks";
 import type { IndexRunSummary } from "../api/types";
 import { formatRelativeTime } from "../lib/formatRelativeTime";
@@ -956,8 +956,8 @@ export function IndexStatusBadge() {
         : `Indexed · ${formatRelativeTime(lastRun!.completed_at)}`;
 
   return (
-    <Popover.Root onOpenChange={(open) => open && refetch()}>
-      <Popover.Trigger asChild>
+    <HoverCard.Root onOpenChange={(open) => open && refetch()}>
+      <HoverCard.Trigger asChild>
         <button
           type="button"
           className="inline-flex items-center gap-2 rounded-full border border-border px-2.5 py-1 text-meta text-ink-muted hover:text-ink"
@@ -965,9 +965,9 @@ export function IndexStatusBadge() {
           <span className={`h-2 w-2 rounded-full ${DOT_CLASS[variant]}`} aria-hidden="true" />
           {label}
         </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
+      </HoverCard.Trigger>
+      <HoverCard.Portal>
+        <HoverCard.Content
           sideOffset={8}
           className="w-72 rounded-lg border border-border bg-surface p-3 text-meta text-ink shadow-lg"
         >
@@ -988,9 +988,9 @@ export function IndexStatusBadge() {
           ) : (
             "Loading..."
           )}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+        </HoverCard.Content>
+      </HoverCard.Portal>
+    </HoverCard.Root>
   );
 }
 ```
@@ -1517,7 +1517,7 @@ export function LoadingState() {
 }
 ```
 
-- [ ] **Step 4: Write `src/components/AnswerCard.tsx`**
+- [ ] **Step 4: Write `src/components/AnswerCard.tsx`** — the abstention limitation text renders immediately below the badge row, before the answer text, so it sits visually next to `ConfidenceBadge` per the spec's "render that message directly next to the badge" (an earlier draft of this task put it below the answer text instead, which drifted from that wording)
 
 ```tsx
 import type { QueryResponse } from "../api/types";
@@ -1533,10 +1533,10 @@ export function AnswerCard({ response }: { response: QueryResponse }) {
         <ConfidenceBadge confidence={response.confidence} sourceCount={response.sources.length} />
         <CopyButton text={response.answer.say_this} />
       </div>
-      <p className="mt-3 text-answer text-ink">{response.answer.say_this}</p>
       {response.confidence === "low" && response.limitations.length > 0 ? (
-        <p className="mt-2 text-meta text-amber-500">{response.limitations[0]}</p>
+        <p className="mt-1.5 text-meta text-amber-500">{response.limitations[0]}</p>
       ) : null}
+      <p className="mt-3 text-answer text-ink">{response.answer.say_this}</p>
       <SupportingPointsDisclosure
         supportingPoints={response.answer.supporting_points}
         personalExamples={response.answer.personal_examples}
