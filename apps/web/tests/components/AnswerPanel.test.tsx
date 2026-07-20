@@ -53,7 +53,10 @@ describe("AnswerPanel", () => {
       timing_ms: { retrieval: 1, generation: 1, total: 2 },
     };
     render(
-      <AnswerPanel mutation={mutationStub({ status: "success", data: response })} onRetry={vi.fn()} />
+      <AnswerPanel
+        mutation={mutationStub({ status: "success", data: response })}
+        onRetry={vi.fn()}
+      />
     );
     expect(screen.getByText("Say this.")).toBeInTheDocument();
   });
