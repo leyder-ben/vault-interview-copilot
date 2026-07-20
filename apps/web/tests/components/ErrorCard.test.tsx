@@ -9,7 +9,7 @@ describe("ErrorCard", () => {
     render(<ErrorCard message="Can't reach the API." onRetry={onRetry} />);
 
     expect(screen.getByText("Can't reach the API.")).toBeInTheDocument();
-    expect(document.querySelector("svg.lucide-x-circle")).toBeInTheDocument();
+    expect(document.querySelector("svg.lucide-circle-x")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onRetry).toHaveBeenCalledTimes(1);

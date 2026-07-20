@@ -23,13 +23,13 @@ describe("ConfidenceBadge rendering", () => {
   it("renders CheckCircle2 and green text for the cited state", () => {
     render(<ConfidenceBadge confidence="high" sourceCount={1} />);
     expect(screen.getByText("Cited")).toHaveClass("text-green-500");
-    expect(document.querySelector("svg.lucide-check-circle-2")).toBeInTheDocument();
+    expect(document.querySelector("svg.lucide-circle-check")).toBeInTheDocument();
   });
 
   it("renders AlertTriangle and amber text for the abstention state", () => {
     render(<ConfidenceBadge confidence="low" sourceCount={0} />);
     expect(screen.getByText("No grounding found")).toHaveClass("text-amber-500");
-    expect(document.querySelector("svg.lucide-alert-triangle")).toBeInTheDocument();
+    expect(document.querySelector("svg.lucide-triangle-alert")).toBeInTheDocument();
   });
 
   it("renders no icon and neutral zinc classes for the under-cited state", () => {

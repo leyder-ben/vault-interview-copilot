@@ -9,7 +9,7 @@ export function ErrorCard({ message, onRetry }: ErrorCardProps) {
   return (
     <div className="rounded-lg border border-border bg-surface p-4">
       <div className="flex items-center gap-2 text-red-500">
-        <XCircle size={18} className="lucide-x-circle" aria-hidden="true" />
+        <XCircle size={18} aria-hidden="true" />
         <span className="text-body font-medium">{message}</span>
       </div>
       <button

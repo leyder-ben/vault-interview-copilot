@@ -23,7 +23,7 @@ export function ConfidenceBadge({ confidence, sourceCount }: ConfidenceBadgeProp
   if (variant === "abstention") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-1 text-meta text-amber-500">
-        <AlertTriangle size={14} className="lucide-alert-triangle" aria-hidden="true" />
+        <AlertTriangle size={14} aria-hidden="true" />
         No grounding found
       </span>
     );
@@ -39,7 +39,7 @@ export function ConfidenceBadge({ confidence, sourceCount }: ConfidenceBadgeProp
 
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-green-500/10 px-2.5 py-1 text-meta text-green-500">
-      <CheckCircle2 size={14} className="lucide-check-circle-2" aria-hidden="true" />
+      <CheckCircle2 size={14} aria-hidden="true" />
       Cited
     </span>
   );
