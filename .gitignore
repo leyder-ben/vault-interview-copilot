@@ -48,3 +48,7 @@ evaluation/datasets/private/
 .idea/
 .DS_Store
 *.swp
+
+# Claude Code local state — permissions allowlist and worktree checkouts,
+# neither of which are project deliverables.
+.claude/
