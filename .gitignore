@@ -17,6 +17,11 @@ node_modules/
 dist/
 .vite/
 
+# Playwright E2E (generated, not source)
+test-results/
+playwright-report/
+blob-report/
+
 # Docker
 *.pid
 
