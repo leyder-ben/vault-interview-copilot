@@ -335,6 +335,74 @@ def test_personal_example_source_id_dropped_for_irrelevance_not_just_membership(
     assert result.draft.confidence == Confidence.MEDIUM
 
 
+def test_high_confidence_with_no_citations_is_downgraded_and_flagged(db_session):
+    # The model can silently draw on retrieved context in `say_this` while
+    # leaving `used_source_chunk_ids` empty -- a structured-output
+    # compliance failure the system prompt explicitly forbids but doesn't
+    # always avoid. This is a deterministic, membership/relevance-free
+    # check: it doesn't try to verify *what* the model used, it just
+    # refuses to let "high confidence, zero citations" pass through
+    # unflagged. See docs/superpowers/plans/2026-07-19-phase-3-grounded-
+    # answers.md's citation-recall follow-up.
+    chunk_id = _make_chunk(db_session, "Terraform.md", "Drift", "State drift content.")
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="Terraform.md",
+            heading_path="Drift",
+            content="State drift content.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="Drift happens when infrastructure diverges from the state file.",
+        used_source_chunk_ids=[],
+        confidence=Confidence.HIGH,
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "terraform drift", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.confidence == Confidence.MEDIUM
+    assert result.sources == []
+    assert "without citing" in " ".join(result.draft.limitations)
+
+
+def test_medium_confidence_with_no_citations_is_not_further_downgraded(db_session):
+    # An honest self-hedge (model already reported medium confidence and
+    # explained why in its own limitations, e.g. "nothing relevant in the
+    # notes") must NOT be double-penalized by the new check above -- it
+    # already told the truth about not using the context.
+    chunk_id = _make_chunk(db_session, "Helm.md", "Usage", "Unrelated content.")
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="Helm.md",
+            heading_path="Usage",
+            content="Unrelated content.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="I'm not aware of Helm usage in your notes; generally it's a package manager.",
+        used_source_chunk_ids=[],
+        confidence=Confidence.MEDIUM,
+        limitations=["No retrieved context mentions Helm usage or related projects."],
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "how do I use helm", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.confidence == Confidence.MEDIUM
+    assert result.draft.limitations == [
+        "No retrieved context mentions Helm usage or related projects."
+    ]
+
+
 def test_generation_error_returns_typed_error_draft(db_session):
     class AlwaysFailsProvider:
         def generate_answer(self, query, context, mode):

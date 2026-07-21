@@ -138,11 +138,31 @@ def answer(
         draft.personal_examples, context_ids, content_by_id, draft.say_this, relevance_threshold
     )
 
+    # The model can draw on retrieved context in `say_this` without
+    # populating `used_source_chunk_ids` -- the system prompt forbids this
+    # but doesn't always prevent it (non-deterministic across identical
+    # calls; see docs/superpowers/plans/2026-07-19-phase-3-grounded-
+    # answers.md's citation-recall follow-up). This check doesn't try to
+    # verify what the model actually used (no lexical/relevance matching,
+    # no new failure surface) -- it only refuses to let a self-reported
+    # HIGH confidence stand uncontested when the model cited nothing at
+    # all. A self-reported MEDIUM/LOW with no citations is left alone: the
+    # model already hedged appropriately (e.g. "not aware of X in your
+    # notes"), and re-flagging that would misrepresent an honest answer as
+    # a suspected violation.
+    missing_citations = not draft.used_source_chunk_ids and draft.confidence == Confidence.HIGH
+
     if used_dropped or examples_dropped:
         confidence = downgrade_confidence(draft.confidence)
         limitations = [
             *draft.limitations,
             "Some cited sources could not be verified and were removed; confidence reduced.",
+        ]
+    elif missing_citations:
+        confidence = downgrade_confidence(draft.confidence)
+        limitations = [
+            *draft.limitations,
+            "The model reported high confidence without citing any source; confidence reduced.",
         ]
     else:
         confidence = draft.confidence
