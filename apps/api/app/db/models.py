@@ -101,3 +101,5 @@ class QueryRun(Base):
     selected_source_ids: Mapped[list[int] | None] = mapped_column(ARRAY(Integer))
     provider_name: Mapped[str | None] = mapped_column(Text)
     model_name: Mapped[str | None] = mapped_column(Text)
+    confidence: Mapped[str | None] = mapped_column(Text)
+    limitations: Mapped[list[str] | None] = mapped_column(ARRAY(Text))

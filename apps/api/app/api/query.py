@@ -76,6 +76,8 @@ def query(request: QueryRequest, db: Session = Depends(get_db)) -> QueryResponse
                 selected_source_ids=[s.citation.chunk_id for s in result.sources],
                 provider_name="ollama",
                 model_name=settings.generation_model,
+                confidence=result.draft.confidence.value,
+                limitations=result.draft.limitations,
             )
         )
         db.commit()
