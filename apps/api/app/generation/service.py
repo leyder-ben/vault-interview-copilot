@@ -168,6 +168,17 @@ def answer(
         confidence = draft.confidence
         limitations = draft.limitations
 
+    # The model can self-report a below-HIGH confidence and leave
+    # `limitations` empty -- the prompt only requires an explanation for
+    # one specific case (an unsupported personal claim), not generally
+    # whenever confidence drops, and confirmed non-deterministic in
+    # practice (identical query/context, repeated calls, sometimes
+    # explained, sometimes not). This doesn't try to fix the model's
+    # prompt adherence -- it just refuses to let a below-HIGH confidence
+    # stand with no stated reason at all.
+    if confidence != Confidence.HIGH and not limitations:
+        limitations = [f"Confidence is {confidence.value}; the model did not explain why."]
+
     surviving_ids = sorted(set(used_ids) | {cid for ex in examples for cid in ex.source_chunk_ids})
     citations = resolve_sources(session, surviving_ids)
     score_by_id = {c.chunk_id: c.rrf_score for c in context}

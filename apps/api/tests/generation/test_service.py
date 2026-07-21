@@ -403,6 +403,137 @@ def test_medium_confidence_with_no_citations_is_not_further_downgraded(db_sessio
     ]
 
 
+def test_low_confidence_with_no_explanation_gets_a_fallback_limitation(db_session):
+    # The model can self-report a below-HIGH confidence and leave
+    # `limitations` empty -- the prompt only requires an explanation for
+    # one specific case (an unsupported personal claim), not generally
+    # whenever confidence drops. Confirmed non-deterministic in practice:
+    # identical query/context, repeated calls, sometimes explained,
+    # sometimes not. This guard doesn't try to fix the model's prompt
+    # adherence -- it just refuses to let a below-HIGH confidence stand
+    # with no stated reason at all.
+    chunk_id = _make_chunk(db_session, "ECS.md", "Comparison", "Unrelated content.")
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="ECS.md",
+            heading_path="Comparison",
+            content="Unrelated content.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="I don't have notes comparing Kubernetes and ECS.",
+        used_source_chunk_ids=[],
+        confidence=Confidence.LOW,
+        limitations=[],
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "kubernetes vs ecs", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.confidence == Confidence.LOW
+    assert result.draft.limitations == ["Confidence is low; the model did not explain why."]
+
+
+def test_medium_confidence_with_no_explanation_gets_a_fallback_limitation(db_session):
+    chunk_id = _make_chunk(db_session, "ECS.md", "Comparison", "Unrelated content.")
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="ECS.md",
+            heading_path="Comparison",
+            content="Unrelated content.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="I don't have notes comparing Kubernetes and ECS.",
+        used_source_chunk_ids=[],
+        confidence=Confidence.MEDIUM,
+        limitations=[],
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "kubernetes vs ecs", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.confidence == Confidence.MEDIUM
+    assert result.draft.limitations == ["Confidence is medium; the model did not explain why."]
+
+
+def test_high_confidence_with_real_citations_gets_no_fallback_limitation(db_session):
+    # Regression guard: a genuinely well-cited HIGH-confidence answer must
+    # not be flagged just because `limitations` happens to be empty --
+    # empty limitations on a HIGH-confidence, real-citation answer is the
+    # expected, healthy case, not a gap to fill.
+    chunk_id = _make_chunk(db_session, "Terraform.md", "Drift", "State drift content.")
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="Terraform.md",
+            heading_path="Drift",
+            content="State drift content.",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="Drift happens when infrastructure diverges from the state file.",
+        used_source_chunk_ids=[chunk_id],
+        confidence=Confidence.HIGH,
+        limitations=[],
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session,
+        fake,
+        "terraform drift",
+        ResponseMode.SPEAKABLE,
+        context,
+        score_threshold=0.01,
+        relevance_threshold=0.0,
+    )
+
+    assert result.draft.confidence == Confidence.HIGH
+    assert result.draft.limitations == []
+
+
+def test_existing_downgrade_limitation_is_not_double_flagged(db_session):
+    # Regression guard: when an existing downgrade branch already appends
+    # its own explanatory limitation, the new fallback must not also fire
+    # (limitations is non-empty by the time the guard runs).
+    chunk_id = _make_chunk(db_session, "Terraform.md", "Drift", "content")
+    context = [
+        RetrievedChunk(
+            chunk_id=chunk_id,
+            vault_path="Terraform.md",
+            heading_path="Drift",
+            content="content",
+            rrf_score=0.9,
+        )
+    ]
+    draft = AnswerDraft(
+        say_this="Drift happens when infrastructure diverges from the state file.",
+        used_source_chunk_ids=[],
+        confidence=Confidence.HIGH,
+        limitations=[],
+    )
+    fake = FakeLLMProvider(response=draft)
+
+    result = answer(
+        db_session, fake, "terraform drift", ResponseMode.SPEAKABLE, context, score_threshold=0.01
+    )
+
+    assert result.draft.confidence == Confidence.MEDIUM
+    assert result.draft.limitations == [
+        "The model reported high confidence without citing any source; confidence reduced."
+    ]
+
+
 def test_generation_error_returns_typed_error_draft(db_session):
     class AlwaysFailsProvider:
         def generate_answer(self, query, context, mode):
