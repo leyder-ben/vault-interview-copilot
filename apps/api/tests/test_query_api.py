@@ -114,12 +114,15 @@ def test_query_writes_a_query_run_row_when_logging_enabled(db_session, monkeypat
     app.dependency_overrides[get_db] = lambda: db_session
     try:
         client = TestClient(app)
-        client.post("/api/query", json={"query": "terraform state drift"})
+        response = client.post("/api/query", json={"query": "terraform state drift"})
+        body = response.json()
         rows = db_session.query(QueryRun).all()
         assert len(rows) == 1
         assert rows[0].raw_query == "terraform state drift"
         assert rows[0].response_mode == ResponseMode.SPEAKABLE.value
         assert rows[0].provider_name == "ollama"
+        assert rows[0].confidence == body["confidence"]
+        assert rows[0].limitations == body["limitations"]
     finally:
         app.dependency_overrides.clear()
 
