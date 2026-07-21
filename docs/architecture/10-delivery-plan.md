@@ -76,7 +76,9 @@ The safety-critical half of the exit condition ("without fabricated file citatio
 - Supporting points and examples.
 - Source excerpts.
 - Confidence and limitation state.
-- Copy action, local history.
+- Copy action.
+
+Query history was dropped from this scope list — `06-ui-requirements.md` always filed it under "useful soon after (not blocking V1)," and `docs/superpowers/specs/2026-07-19-phase-4-web-interface-design.md`'s "Query history" section made that deferral explicit before implementation started. This bullet list just hadn't caught up.
 
 **Confidence/limitation state must distinguish two visually different empty-`sources` cases, not collapse them** (see Phase 3's "citation-population reliability" follow-up above): `confidence: "low"` with a stated evidence-lacking limitation is a genuine abstention — the UI should show that plainly. `confidence: "high"`/`"medium"` with an empty `sources` array is a different, narrower case — the answer is grounded but the citation trail didn't populate — and needs its own visual treatment, not a reused "no evidence" state, or the UI would misrepresent a real (if under-cited) answer as a non-answer.
 
